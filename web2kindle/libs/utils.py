@@ -99,3 +99,13 @@ def codes_write(folder_path, file_path, content, mode='wb'):
 
 def format_file_name(file_name, a=''):
     return re.sub(r'[ \\/:*?"<>→|]', '', file_name) + a
+
+
+def read_file(path):
+    try:
+        with open(path, 'r') as f:
+            return [i.strip() for i in list(f.readlines())]
+    except FileNotFoundError as e:
+        return str(e)
+    except Exception as e:
+        return str(r)
