@@ -164,7 +164,6 @@ class Crawler:
             while True:
                 q = input("")
                 if q == 'Q':
-                    print('Bye Bye!')
                     # os._exit(0)
                     for worker in self.downloader_worker:
                         worker.exit()
