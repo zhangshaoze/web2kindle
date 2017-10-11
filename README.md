@@ -119,7 +119,7 @@ python main.py 脚本名称 参数
 
 ### zhihu_collection
 
-批量获取知乎收藏夹。如批量获取https://www.zhihu.com/collection/191640375第五页到最后一页：
+批量获取知乎收藏夹。如批量获取[https://www.zhihu.com/collection/191640375](https://www.zhihu.com/collection/191640375)第五页到最后一页：
 
 ```
 python main.py zhihu_collection 191640375 --page=5
@@ -129,7 +129,7 @@ python main.py zhihu_collection 191640375 --page=5
 
 必须参数：
 
-- collection_num：知乎收藏夹的编号。如https://www.zhihu.com/collection/191640375的编号为“191640375”
+- collection_num：知乎收藏夹的编号。如[https://www.zhihu.com/collection/191640375](https://www.zhihu.com/collection/191640375)的编号为“191640375”
 
 可选参数：
 
