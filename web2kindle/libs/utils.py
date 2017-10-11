@@ -7,6 +7,7 @@
 import codecs
 import os
 import re
+from multiprocessing import cpu_count
 
 from jinja2 import Environment, PackageLoader
 
@@ -47,7 +48,7 @@ class HTML2Kindle:
 
     def make_book_multi(self, rootdir):
         from multiprocessing import Pool
-        pool = Pool(4)
+        pool = Pool(cpu_count())
         path_l = []
         for i in os.listdir(rootdir):
             if not os.path.isdir(os.path.join(rootdir, os.path.join(rootdir, i))):
