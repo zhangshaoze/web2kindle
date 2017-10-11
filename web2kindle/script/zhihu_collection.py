@@ -40,6 +40,7 @@ def main(collection_num, page):
     iq.put(task)
     crawler.start()
     html2kindle.make_book_multi(save_path)
+    os._exit(0)
 
 
 def parser_downloader_img(task):
