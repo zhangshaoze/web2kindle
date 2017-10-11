@@ -108,4 +108,4 @@ def read_file(path):
     except FileNotFoundError as e:
         return str(e)
     except Exception as e:
-        return str(r)
+        return str(e)
