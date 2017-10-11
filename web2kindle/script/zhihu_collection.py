@@ -16,7 +16,7 @@ from web2kindle.libs.utils import HTML2Kindle, Task, write, format_file_name
 from web2kindle.libs.log import Log
 from pyquery import PyQuery
 
-from web2kindle.config import zhihu_collection
+from web2kindle.config import zhihu_collection_config
 
 html2kindle = HTML2Kindle()
 log = Log('zhihu_collection')
@@ -30,13 +30,13 @@ def main(collection_num, page):
 
     task = Task.make_task({
         'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, page),
-        'meta': {'headers': zhihu_collection.DEFAULT_HEADERS, 'verify': False},
+        'meta': {'headers': zhihu_collection_config.DEFAULT_HEADERS, 'verify': False},
         'parser': parser_collection,
         'priority': 0,
         'retry': 3,
     })
     global save_path
-    save_path = os.path.join(zhihu_collection.SAVE_PATH, str(collection_num))
+    save_path = os.path.join(zhihu_collection_config.SAVE_PATH, str(collection_num))
     iq.put(task)
     crawler.start()
     html2kindle.make_book_multi(save_path)
@@ -106,7 +106,7 @@ def parser_collection(task):
         next_page_task.update({'url': next_page, 'priority': 0})
         new_tasks.append(next_page_task)
 
-    img_header = deepcopy(zhihu_collection.DEFAULT_HEADERS)
+    img_header = deepcopy(zhihu_collection_config.DEFAULT_HEADERS)
     img_header.update({'Referer': response.url})
     for img_url in download_img_list:
         new_tasks.append(Task({
