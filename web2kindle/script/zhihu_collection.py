@@ -22,30 +22,31 @@ html2kindle = HTML2Kindle()
 log = Log('zhihu_collection')
 
 
-def main(collection_num, page):
+def main(collection_num_list, page):
     iq = PriorityQueue()
     oq = PriorityQueue()
     result_q = Queue()
     crawler = Crawler(iq, oq, result_q)
 
-    task = Task.make_task({
-        'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, page),
-        'meta': {'headers': zhihu_collection_config.DEFAULT_HEADERS, 'verify': False},
-        'parser': parser_collection,
-        'priority': 0,
-        'retry': 3,
-    })
-    global save_path
-    save_path = os.path.join(zhihu_collection_config.SAVE_PATH, str(collection_num))
-    iq.put(task)
+    for collection_num in collection_num_list:
+        task = Task.make_task({
+            'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, page),
+            'meta': {'headers': zhihu_collection_config.DEFAULT_HEADERS, 'verify': False},
+            'parser': parser_collection,
+            'priority': 0,
+            'retry': 3,
+            'save_path': os.path.join(zhihu_collection_config.SAVE_PATH, str(collection_num))
+        })
+        iq.put(task)
     crawler.start()
-    html2kindle.make_book_multi(save_path)
+    for collection_num in collection_num_list:
+        html2kindle.make_book_multi(os.path.join(zhihu_collection_config.SAVE_PATH, str(collection_num)))
     os._exit(0)
 
 
 def parser_downloader_img(task):
     if task['response']:
-        write(os.path.join(save_path, 'static'), urlparse(task['response'].url).path[1:],
+        write(os.path.join(task['save_path'], 'static'), urlparse(task['response'].url).path[1:],
               task['response'].content, mode='wb')
     else:
         log.log_it("无法下载图片（无Response）。URL：{}".format(task['url']), 'WARN')
@@ -91,11 +92,11 @@ def parser_collection(task):
         article_path = format_file_name(title, '.html')
         opf.append({'id': article_path, 'href': article_path})
         html2kindle.make_content(title, content,
-                                 os.path.join(save_path, format_file_name(title, '.html')))
+                                 os.path.join(task['save_path'], format_file_name(title, '.html')))
 
     table_path = format_file_name(collection_name, '_table.html')
-    opf_path = os.path.join(save_path, format_file_name(collection_name, '.opf'))
-    html2kindle.make_table(opf, os.path.join(save_path, table_path))
+    opf_path = os.path.join(task['save_path'], format_file_name(collection_name, '.opf'))
+    html2kindle.make_table(opf, os.path.join(task['save_path'], table_path))
     html2kindle.make_opf(collection_name, opf, table_path, opf_path)
 
     # Get next page url
@@ -109,11 +110,12 @@ def parser_collection(task):
     img_header = deepcopy(zhihu_collection_config.DEFAULT_HEADERS)
     img_header.update({'Referer': response.url})
     for img_url in download_img_list:
-        new_tasks.append(Task({
+        new_tasks.append(Task.make_task({
             'url': img_url,
             'meta': {'headers': img_header, 'verify': False},
             'parser': parser_downloader_img,
             'priority': 5,
+            'save_path': task['save_path']
         }))
 
     return None, new_tasks

@@ -60,9 +60,9 @@ class Downloader(Thread):
                 response = self.session.get(task['url'], **task.get('meta', {}))
         except Exception as e:
             self.log.log_it("网络请求错误。错误信息:{} URL:{} Response:{}".format(str(e), task['url'], response), 'INFO')
-            if task['meta'].get('retry', None):
-                if task['meta'].get('retried', 0) < task['meta'].get('retry'):
-                    task['meta'].update({'retried': task['meta'].get('retried', 0)})
+            if task.get('retry', None):
+                if task.get('retried', 0) < task.get('retry'):
+                    task.update({'retried': task.get('retried', 0)})
                     self.log.log_it("重试任务 {}".format(task), 'INFO')
                     self.to_download_q.put(task)
             return
@@ -103,9 +103,9 @@ class Parser(Thread):
             data, tasks = task['parser'](task)
         except RetryTask:
             self.log.log_it("RetryTask Exception.Task{}".format(task), 'INFO')
-            if task['meta'].get('retry', None):
-                if task['meta'].get('retried', 0) < task['meta'].get('retry'):
-                    task['meta'].update({'retried': task['meta'].get('retried', 0)})
+            if task.get('retry', None):
+                if task.get('retried', 0) < task.get('retry'):
+                    task.update({'retried': task.get('retried', 0)})
                     self.log.log_it("重试任务 {}".format(task), 'INFO')
                     self.to_download_q.put(task)
             return
