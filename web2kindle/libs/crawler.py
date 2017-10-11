@@ -11,7 +11,9 @@ import random
 import re
 import os
 import time
+import traceback
 from web2kindle.libs.log import Log
+from web2kindle.config import config
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -110,6 +112,8 @@ class Parser(Thread):
                     self.to_download_q.put(task)
             return
         except Exception as e:
+            traceback.print_exc(file=open(os.path.join(config.LOG_PATH, 'traceback'), 'a'))
+            traceback.print_exc()
             self.log.log_it("解析错误。错误信息：{}。Task：{}".format(str(e), task), 'WARN')
 
         if tasks and isinstance(tasks, list):
