@@ -21,10 +21,5 @@ def zhihu_collection_main(collection_num, page):
     web2kindle.script.zhihu_collection.main(collection_num, page)
 
 
-@cli.command('bdist_wheel')
-def bdist_wheel():
-    click.echo('bdist_wheel called')
-
-
 if __name__ == '__main__':
     cli()
