@@ -126,20 +126,67 @@ python main.py zhihu_collection --i=191640375 --page=5
 python main.py zhihu_collection --f="c:\a.txt"
 ```
 
-### 参数
+`c:\a.txt`文本文件。里面放着要下载的收藏夹的编号。分别用换行符隔开。
 
-参数：
+```
+67258836
+59744917
+```
+
+#### 参数
 
 - --i：知乎收藏夹的编号。如[https://www.zhihu.com/collection/191640375](https://www.zhihu.com/collection/191640375)的编号为“191640375”
-- --f：存放知乎收藏夹的编号文本文件的路径。
+- --f：存放知乎收藏夹的号文本文件的路径。
 
 可选参数：
 
 - --page：开始页码数，如要从第五页开始`--page=5`
 
-### 配置
+#### 配置
 
 在`config`目录下新建一个`zhihu_collection_config.py`文件。
+
+```
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
+
+SAVE_PATH = r'C:\Users\web2kinle_save'
+```
+
+- DEFAULT_HEADERS：请求头，默认即可。
+- SVAE_PATH：保存路径名。会自动在此目录以`collection_num`生产一个子目录，元数据即保存在此子目录中。
+
+### zhihu_zhuanlan
+
+批量获取知乎专栏。
+
+```
+//批量获取https://zhuanlan.zhihu.com/vinca520第三篇到最后一篇
+python main.py zhihu_collection --i=vinca520 --page=3
+
+//批量获取c:\a.txt文本文件下所有编号所示的专栏
+python main.py zhihu_collection --f="c:\a.txt"
+```
+
+`c:\a.txt`文本文件。里面放着要下载的专栏的编号。分别用换行符隔开。
+
+```
+vinca520
+alenxwn
+```
+#### 参数
+
+- --i：知乎专栏的编号。如[https://zhuanlan.zhihu.com/vinca520](https://zhuanlan.zhihu.com/vinca520)的编号为“vinca520”
+- --f：存放知乎专栏编号文本文件的路径。
+
+可选参数：
+
+- --page：开始页码数，如要从第五页开始`--page=5`
+
+#### 配置
+
+在`config`目录下新建一个`zhihu_zhuanlan_config.py`文件。
 
 ```
 DEFAULT_HEADERS = {
