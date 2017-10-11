@@ -19,68 +19,65 @@ pip install -r requirement
 
 配置文件在`config`目录下。配置文件其实是一个`.py`文件。
 
-参考**配置**与**脚本**两章配置好配置文件。
+参考[配置](./配置)与[脚本](脚本)两章配置好配置文件。
 
 ## 使用
 
-如使用本程序下载知乎某收藏夹（https://www.zhihu.com/collection/191640375）。
+如使用本程序下载知乎某收藏夹（[https://www.zhihu.com/collection/59744917](https://www.zhihu.com/collection/59744917)与[https://www.zhihu.com/collection/67258836](https://www.zhihu.com/collection/67258836)）。
+
+有一个本文文件`C:\Users\vincent8280\web2kindle\a.txt`。里面放着要下载的收藏夹的编号。
+
+```
+67258836
+59744917
+```
 
 切换到本项目目录下后，在控制台输入如下命令：
 
 ```
-python main.py zhihu_collection 191640375
+python main.py zhihu_collection --f="C:\Users\vincent8280\web2kindle\a.txt"
 ```
 
 运行结果如下（部分）：
 
 ```
-Microsoft Windows [版本 10.0.14393]
-(c) 2016 Microsoft Corporation。保留所有权利。
-
-C:\Users\vincent8280\PycharmProjects\web2kindle>python main.py zhihu_collection 191640375
 启动。输入Q结束。
-[2017-10-11 16:32:59,262][Crawler] 启动 Downloader 0
-[2017-10-11 16:32:59,262][Crawler] 启动 Parser 0
-[2017-10-11 16:32:59,262][Downloader 0] 请求 https://www.zhihu.com/collection/191640375?page=1
-[2017-10-11 16:33:02,881][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
-[2017-10-11 16:33:02,930][zhihu_collection] 获取收藏夹[20101010 第1页]
-[2017-10-11 16:33:03,012][Parser 0] 获取新任务107个。
-[2017-10-11 16:33:03,012][Downloader 0] Downloader to Parser队列不为空。Downloader 0被唤醒。
-[2017-10-11 16:33:03,012][Downloader 0] 请求 https://pic1.zhimg.com/v2-be841a4a200e7cc0398fea8e3054c4f0_b.png
-....
-[2017-10-11 16:33:09,516][Downloader 0] 请求 https://pic3.zhimg.com/v2-69182c7e1f05afef702fb87ad875583a_b.png
-[2017-10-11 16:33:09,552][Downloader 0] 请求 https://www.zhihu.com/collection/191640375?page=2
-[2017-10-11 16:33:10,838][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
-[2017-10-11 16:33:10,854][zhihu_collection] 获取收藏夹[20101010 第2页]
-[2017-10-11 16:33:10,938][Parser 0] 获取新任务112个。
-[2017-10-11 16:33:10,938][Downloader 0] Downloader to Parser队列不为空。Downloader 0被唤醒。
-[2017-10-11 16:33:10,938][Downloader 0] 请求 https://pic2.zhimg.com/50/v2-a33a10cdedce64c97ff180602ef901ed_b.jpg
-[2017-10-11 16:33:10,985][Downloader 0] 请求 http://pic4.zhimg.com/v2-40d92275cb20456f4b1160d5e1fa64bf_b.jpg
-......
-[2017-10-11 16:33:18,761][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
-[2017-10-11 16:33:18,761][Downloader 0] Downloader to Parser队列不为空。Downloader 0被唤醒。
-[2017-10-11 16:33:18,761][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
-Q
-Bye Bye!
-
-
-*************************************************************************************************************************
-*
- Am aAzmoanz okni nkdilnedgelne(gWeinn(dWoiwnsd)o wVs2).9  Vb2u.i9l db u1i0l2d9 -100829972-9028 9
-292
-  命命令令行行电电子子书书制制作作软软件件
-
-  CCooppyyrriigghhtt  AAmmaazzoonn..ccoomm  aanndd  iittss  AAffffiilliiaatteess  22001144
-
-*************************************************************************************************************************
-*
-信息(prcgen):I1015: 创建 PRC 文件
-信息(prcgen):I1006: 分析超链接
-警告(prcgen):W14016: 没有指定封面
-信息(prcgen):I1015: 创建 PRC 文件
-信息(prcgen):I1006: 分析超链接
-警告(prcgen):W14016: 没有指定封面
+[2017-10-11 21:44:31,579][Crawler] 启动 Downloader 0
+[2017-10-11 21:44:31,580][Crawler] 启动 Parser 0
+[2017-10-11 21:44:31,580][Downloader 0] 请求 https://www.zhihu.com/collection/67258836?page=1
+[2017-10-11 21:44:32,428][Downloader 0] 请求 https://www.zhihu.com/collection/59744917?page=1
+[2017-10-11 21:44:32,459][zhihu_collection] 获取收藏夹[知乎找抽系列 第1页]
+[2017-10-11 21:44:32,528][Parser 0] 获取新任务5个。
+[2017-10-11 21:44:33,559][Downloader 0] 请求 https://pic2.zhimg.com/32aa4dc0b3a1d4f3a59ed969e5c8eeb1_b.jpg
+[2017-10-11 21:44:33,596][zhihu_collection] 获取收藏夹[Read it later 第1页]
+[2017-10-11 21:44:33,659][Parser 0] 获取新任务31个。
+[2017-10-11 21:44:33,728][Downloader 0] 请求 https://pic1.zhimg.com/048d1383a27aa22284945f140d72ef74_b.png
 .....
+[2017-10-11 21:44:36,601][Downloader 0] 请求 https://pic4.zhimg.com/1688f4754c030827305f0afe99d9d023_b.png
+[2017-10-11 21:44:36,685][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
+[2017-10-11 21:44:36,685][Downloader 0] Downloader to Parser队列不为空。Downloader 0被唤醒。
+[2017-10-11 21:44:36,701][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
+Q
+
+*************************************************************
+ Amazon kindlegen(Windows) V2.9 build 1029-0897292
+ 命令行电子书制作软件
+ Copyright Amazon.com and its Affiliates 2014
+*************************************************************
+
+信息(prcgen):I1047: 已添加的元数据dc:Title        "知乎找抽系列 第1页"
+.....
+信息(prcgen):I1037: 创建 Mobi 域名文件出现警告！
+
+*************************************************************
+ Amazon kindlegen(Windows) V2.9 build 1029-0897292
+ 命令行电子书制作软件
+ Copyright Amazon.com and its Affiliates 2014
+*************************************************************
+
+信息(prcgen):I1047: 已添加的元数据dc:Title        "Read it later 第1页"
+.....
+信息(prcgen):I1037: 创建 Mobi 域名文件出现警告！
 ```
 
 调用KindleGen制作电子书部分为多进程，所以部分显示不正常。
@@ -119,17 +116,22 @@ python main.py 脚本名称 参数
 
 ### zhihu_collection
 
-批量获取知乎收藏夹。如批量获取[https://www.zhihu.com/collection/191640375](https://www.zhihu.com/collection/191640375)第五页到最后一页：
+批量获取知乎收藏夹。
 
 ```
-python main.py zhihu_collection 191640375 --page=5
+//批量获取https://www.zhihu.com/collection/191640375第五页到最后一页
+python main.py zhihu_collection --i=191640375 --page=5
+
+//批量获取c:\a.txt文本文件下所有编号所示的收藏夹
+python main.py zhihu_collection --f="c:\a.txt"
 ```
 
 ### 参数
 
-必须参数：
+参数：
 
-- collection_num：知乎收藏夹的编号。如[https://www.zhihu.com/collection/191640375](https://www.zhihu.com/collection/191640375)的编号为“191640375”
+- --i：知乎收藏夹的编号。如[https://www.zhihu.com/collection/191640375](https://www.zhihu.com/collection/191640375)的编号为“191640375”
+- --f：存放知乎收藏夹的编号文本文件的路径。
 
 可选参数：
 
@@ -199,7 +201,7 @@ SAVE_PATH = r'C:\Users\web2kinle_save'
 - 其他都可以省略，只是会影响电子书完整性。
 - 由于这两个文件内部其实都是HTML，所以修改编辑都很容易。
 
-##HTML
+## HTML
 
 KindleGen只需要一个`<body>`标签即可。
 
