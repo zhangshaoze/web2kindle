@@ -7,6 +7,7 @@
 import click
 
 import web2kindle.script.zhihu_collection
+import web2kindle.script.zhihu_zhuanlan
 from web2kindle.libs.utils import read_file
 
 
@@ -28,6 +29,21 @@ def zhihu_collection_main(i, f, page):
             web2kindle.script.zhihu_collection.main(collection_list, page)
         else:
             click.echo(collection_list)
+
+
+@cli.command('zhihu_zhuanlan')
+@click.option('--i')
+@click.option('--f')
+@click.option('--page', default=0)
+def zhihu_collection_main(i, f, page):
+    if i:
+        web2kindle.script.zhihu_zhuanlan.main([i], page)
+    elif f:
+        zhuanlan_list = read_file(f)
+        if isinstance(zhuanlan_list, list):
+            web2kindle.script.zhihu_zhuanlan.main(zhuanlan_list, page)
+        else:
+            click.echo(zhuanlan_list)
 
 
 if __name__ == '__main__':
