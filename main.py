@@ -15,10 +15,10 @@ def cli():
 
 
 @cli.command('zhihu_collection')
-@click.argument('n')
-@click.option('--p', default=1)
-def zhihu_collection_main(n, p):
-    web2kindle.script.zhihu_collection.main(n, p)
+@click.argument('collection_num')
+@click.option('--page', default=1)
+def zhihu_collection_main(collection_num, page):
+    web2kindle.script.zhihu_collection.main(collection_num, page)
 
 
 @cli.command('bdist_wheel')
