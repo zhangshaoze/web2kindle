@@ -63,24 +63,6 @@ class HTML2Kindle:
                     os.system("{} {}".format(config.KINDLEGEN_PATH, os.path.join(rootdir, i)))
 
 
-class Task(dict):
-    def __eq__(self, other):
-        return self['priority'] == other['priority']
-
-    def __lt__(self, other):
-        return self['priority'] > other['priority']
-
-    @staticmethod
-    def make_task(params):
-        if 'meta' not in params:
-            params.update({'meta': {}})
-        if 'parser' not in params:
-            raise Exception("Need a parser")
-        if 'priority' not in params:
-            params.update({'priority': 0})
-        return Task(**params)
-
-
 def write(folder_path, file_path, content, mode='wb'):
     path = os.path.join(folder_path, file_path)
     if not os.path.exists(os.path.split(path)[0]):

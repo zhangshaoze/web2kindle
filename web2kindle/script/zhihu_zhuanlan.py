@@ -12,8 +12,8 @@ from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
-from web2kindle.libs.crawler import Crawler, RetryTask
-from web2kindle.libs.utils import HTML2Kindle, Task, write, format_file_name
+from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name
 from web2kindle.libs.log import Log
 from pyquery import PyQuery
 
@@ -34,6 +34,7 @@ def main(zhuanlan_name_list, page):
         new_header.update({'Referer': 'https://zhuanlan.zhihu.com/{}'.format(zhuanlan_name)})
         task = Task.make_task({
             'url': 'https://zhuanlan.zhihu.com/api/columns/{}/posts?limit=20&offset={}'.format(zhuanlan_name, page),
+            'method': 'GET',
             'meta': {'headers': new_header, 'verify': False},
             'parser': parser_list,
             'priority': 0,
@@ -97,6 +98,7 @@ def parser_content(task):
         for img_url in download_img_list:
             new_tasks.append(Task({
                 'url': img_url,
+                'method': 'GET',
                 'meta': {'headers': img_header, 'verify': False},
                 'parser': parser_downloader_img,
                 'save_path': task['save_path'],
@@ -136,6 +138,7 @@ def parser_list(task):
         save = deepcopy(task['save'])
         new_task = Task({
             'url': 'https://zhuanlan.zhihu.com' + item['url'],
+            'method': 'GET',
             'meta': task['meta'],
             'parser': parser_content,
             'priority': 5,

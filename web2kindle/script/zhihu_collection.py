@@ -11,8 +11,8 @@ from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
-from web2kindle.libs.crawler import Crawler, RetryTask
-from web2kindle.libs.utils import HTML2Kindle, Task, write, format_file_name
+from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name
 from web2kindle.libs.log import Log
 from pyquery import PyQuery
 
@@ -31,6 +31,7 @@ def main(collection_num_list, page):
     for collection_num in collection_num_list:
         task = Task.make_task({
             'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, page),
+            'method': 'GET',
             'meta': {'headers': zhihu_collection_config.DEFAULT_HEADERS, 'verify': False},
             'parser': parser_collection,
             'priority': 0,
@@ -112,6 +113,7 @@ def parser_collection(task):
     for img_url in download_img_list:
         new_tasks.append(Task.make_task({
             'url': img_url,
+            'method': 'GET',
             'meta': {'headers': img_header, 'verify': False},
             'parser': parser_downloader_img,
             'priority': 5,
@@ -119,3 +121,7 @@ def parser_collection(task):
         }))
 
     return None, new_tasks
+
+
+if __name__ == '__main__':
+    main(['67258836'], 1)

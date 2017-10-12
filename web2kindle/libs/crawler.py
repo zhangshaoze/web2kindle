@@ -4,27 +4,120 @@
 # Author: Vincent<vincent8280@outlook.com>
 #         http://wax8280.github.io
 # Created on 2017/10/10 9:53
-import requests
-from threading import Thread, Condition
-from queue import PriorityQueue, Empty, Queue
-import random
 import re
 import os
-import time
 import traceback
+from copy import deepcopy
+from queue import PriorityQueue, Empty, Queue
+
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from threading import Thread, Condition
+from furl import furl
+
 from web2kindle.libs.log import Log
 from web2kindle.config import config
 
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
 # 禁用安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
 cond = Condition()
 
 
 class RetryTask(Exception):
     pass
+
+
+class Task(dict):
+    """
+    'task': {
+        'tid': str,                         md5(request.url + request.data)
+        'priority': int,                    Priority of task
+        'retried': int,                     Retried count
+        'retry': int,                       Retry time
+        'meta':dict                         A dict to some config or something to save
+        {
+            'retry': int                    The count of retry.Default: 0
+            'retry_wait': int               Default: 3
+            'catty.config.DUPE_FILTER': bool             Default: False
+        },
+
+        'request': dict
+        {
+            'method':str                    HTTP method
+            'url':str                       URL
+            'params':dict/bytes             (optional) Dictionary or bytes to be sent in the query string
+            'data':dict/list                (optional) Dictionary or list of tuples [(key, value)]
+                                            (will be form-encoded), bytes, or file-like object
+            ‘json':str                      (optional) json data to send in the body
+            'headers':dict                  (optional) Dictionary of HTTP Headers
+            'cookies':dict/CookieJar        (optional) Dict or CookieJar object
+            'files':dict                    (optional) Dictionary of 'name': file-like-objects (or {'name': file-tuple})
+                                            for multipart encoding upload. can be a 2-tuple ('filename', fileobj),
+                                            3-tuple ('filename', fileobj, 'content_type') a 4-tuple
+                                            ('filename', fileobj, 'content_type', custom_headers), where 'content-type'
+                                            is a string the content type of the given file and custom_headers a
+                                            dict-like object containing additional headers add for the file.
+            'timeout':float/tuple           (optional) a float, or (connect timeout, read timeout) tuple.
+            'allow_redirects':bool          (optional) Boolean. Enable/disable GET/OPTIONS/POST/PUT/PATCH/DELETE/HEAD
+                                            redirection. Defaults to True.
+            'proxies':dict                  (optional) Dictionary mapping protocol to the URL of the proxy.
+            'verify':bool/str               (optional) Either a boolean, in which case it controls whether we verify
+                                            server's TLS certificate, or a string, in which case it must be a path
+                                            a CA bundle to use. Defaults to True.
+            'stream':bool                   (optional) if False, the response content will be immediately downloaded.
+            'cert':str/tuple                (optional) if String, path to ssl client cert file (.pem).
+                                            If Tuple, ('cert', 'key') pair.
+        }
+
+        'parser': function
+
+        'response': requests.models.Response,
+        # for detail:http://docs.python-requests.org/en/master/api/#requests.Response
+        {
+            'status_code':int               HTTP status code
+            'url':str                       url
+            'history':list                  A list of Response objects from the history of the Request. Any redirect
+                                            responses will end up here. The list is sorted from the oldest to the most
+                                            recent request.
+            'encoding':str
+            'reason':str                    OK
+            'elapsed':timedelta             The amount of time elapsed between sending the request and the arrival of
+                                            the response
+            'text':str/unicode              Content of the response, in unicode.
+            json():
+                Returns the json-encoded content of a response, if any.
+                    Parameters:	**kwargs -- Optional arguments that json.loads takes.
+                    Raises:	ValueError -- If the response body does not contain valid json.
+
+        }
+    }
+    """
+
+    def __eq__(self, other):
+        return self['priority'] == other['priority']
+
+    def __lt__(self, other):
+        return self['priority'] > other['priority']
+
+    @staticmethod
+    def make_task(params):
+        if 'parser' not in params:
+            raise Exception("Need a parser")
+
+        if 'method' not in params:
+            raise Exception("Need a method")
+
+        if 'url' not in params:
+            raise Exception("Need a url")
+
+        params.setdefault('meta', {})
+        params.setdefault('priority', 0)
+
+        if re.match(r'^https?:/{2}\w.+$', params['url']):
+            params['url'] = furl(params['url']).url
+        else:
+            raise Exception("Not a vaild URL.URL:{}".format(params['url']))
+        return Task(**params)
 
 
 class Downloader(Thread):
@@ -45,7 +138,9 @@ class Downloader(Thread):
     def exit(self):
         self._exit = True
 
-    def get(self):
+    def request(self):
+        response = None
+
         try:
             task = self.to_download_q.get_nowait()
         except Empty:
@@ -55,12 +150,13 @@ class Downloader(Thread):
                 self.log.log_it("Downloader to Parser队列不为空。{}被唤醒。".format(self.name), 'INFO')
             return
 
-        response = None
         self.log.log_it("请求 {}".format(task['url']))
         try:
             if re.match(r'^https?:/{2}\w.+$', task['url']):
-                response = self.session.get(task['url'], **task.get('meta', {}))
+                response = self.session.request(task['method'], task['url'], **task.get('meta', {}))
         except Exception as e:
+            traceback.print_exc(file=open(os.path.join(config.LOG_PATH, 'downlaoder_traceback'), 'a'))
+            traceback.print_exc()
             self.log.log_it("网络请求错误。错误信息:{} URL:{} Response:{}".format(str(e), task['url'], response), 'INFO')
             if task.get('retry', None):
                 if task.get('retried', 0) < task.get('retry'):
@@ -77,7 +173,7 @@ class Downloader(Thread):
 
     def run(self):
         while not self._exit:
-            self.get()
+            self.request()
 
 
 class Parser(Thread):
@@ -112,7 +208,7 @@ class Parser(Thread):
                     self.to_download_q.put(task)
             return
         except Exception as e:
-            traceback.print_exc(file=open(os.path.join(config.LOG_PATH, 'traceback'), 'a'))
+            traceback.print_exc(file=open(os.path.join(config.LOG_PATH, 'parser_traceback'), 'a'))
             traceback.print_exc()
             self.log.log_it("解析错误。错误信息：{}。Task：{}".format(str(e), task), 'WARN')
 
@@ -169,19 +265,13 @@ class Crawler:
                 q = input("")
                 if q == 'Q':
                     # os._exit(0)
-                    for worker in self.downloader_worker:
-                        worker.exit()
-                    for worker in self.parser_worker:
-                        worker.exit()
-                    return
+                    break
         except KeyboardInterrupt:
             # os._exit(0)
-            return
+            pass
 
-
-if __name__ == '__main__':
-    iq = PriorityQueue()
-    oq = PriorityQueue()
-    result_q = Queue()
-    crawler = Crawler(iq, oq, result_q)
-    crawler.start()
+        for worker in self.downloader_worker:
+            worker.exit()
+        for worker in self.parser_worker:
+            worker.exit()
+        return
