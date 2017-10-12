@@ -79,12 +79,14 @@ def parser_content(task):
         post = json.loads(raw_json)['database']['Post']
         content = post[list(post.keys())[0]]['content']
 
-        download_img_list.extend(re.findall('src="(http.*?)"', content))
 
         pq = PyQuery(content)
         # 删除无用的img标签
         pq('img[src^="data"]').remove()
         content = pq.html()
+
+        download_img_list.extend(re.findall('src="(http.*?)"', content))
+
         # 更换为本地相对路径
         content = re.sub('src="(.*?)"', lambda x: 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:]), content)
         # 超链接的转换
@@ -148,12 +150,12 @@ def parser_list(task):
             'save_path': task['save_path']
         })
         new_tasks.append(new_task)
+    if opf:
+        zhuanlan_name = task['name'] + '（第{}页）'.format(str(task['save']['cursor']))
+        opf_path = os.path.join(task['save_path'], format_file_name(zhuanlan_name, '.opf'))
 
-    zhuanlan_name = task['name'] + '（第{}页）'.format(str(task['save']['cursor']))
-    opf_path = os.path.join(task['save_path'], format_file_name(zhuanlan_name, '.opf'))
-
-    html2kindle.make_table(opf, os.path.join(task['save_path'], format_file_name(zhuanlan_name, '_table.html')))
-    html2kindle.make_opf(zhuanlan_name, opf, format_file_name(zhuanlan_name, '_table.html'), opf_path)
+        html2kindle.make_table(opf, os.path.join(task['save_path'], format_file_name(zhuanlan_name, '_table.html')))
+        html2kindle.make_opf(zhuanlan_name, opf, format_file_name(zhuanlan_name, '_table.html'), opf_path)
 
     return None, new_tasks
 
