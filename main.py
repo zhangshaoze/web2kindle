@@ -6,9 +6,6 @@
 # Created on 2017/10/11 12:30
 import click
 
-import web2kindle.script.zhihu_collection
-import web2kindle.script.zhihu_zhuanlan
-import web2kindle.script.zhihu_answers
 from web2kindle.libs.utils import read_file
 
 
@@ -22,6 +19,8 @@ def cli():
 @click.option('--f')
 @click.option('--page', default=1)
 def zhihu_collection_main(i, f, page):
+    import web2kindle.script.zhihu_collection
+
     if i:
         web2kindle.script.zhihu_collection.main([i], page)
     elif f:
@@ -37,6 +36,8 @@ def zhihu_collection_main(i, f, page):
 @click.option('--f')
 @click.option('--page', default=0)
 def zhihu_zhuanlan_main(i, f, page):
+    import web2kindle.script.zhihu_zhuanlan
+
     if i:
         web2kindle.script.zhihu_zhuanlan.main([i], page)
     elif f:
@@ -51,6 +52,8 @@ def zhihu_zhuanlan_main(i, f, page):
 @click.option('--f')
 @click.option('--page', default=1)
 def zhihu_answers_main(i, f, page):
+    import web2kindle.script.zhihu_answers
+
     if i:
         web2kindle.script.zhihu_answers.main([i], page)
     elif f:
