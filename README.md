@@ -112,7 +112,7 @@ LOG_LEVEL = 'DEBUG'
 python main.py 脚本名称 参数
 ```
 
-## 现有脚本
+## 知乎
 
 ### zhihu_collection
 
@@ -187,6 +187,49 @@ alenxwn
 #### 配置
 
 在`config`目录下新建一个`zhihu_zhuanlan_config.py`文件。
+
+```
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
+
+SAVE_PATH = r'C:\Users\web2kinle_save'
+```
+
+- DEFAULT_HEADERS：请求头，默认即可。
+- SVAE_PATH：保存路径名。会自动在此目录以`collection_num`生产一个子目录，元数据即保存在此子目录中。
+
+### zhihu_answers
+
+批量获取知乎某人的全部回答。
+
+```
+//批量获取https://www.zhihu.com/people/zhong-wen-sen/answers第三篇到最后一篇
+python main.py zhihu_answers --i=vinca520 --page=3
+
+//批量获取c:\a.txt文本文件下所有答主的所有答案
+python main.py zhihu_answers --f="c:\a.txt"
+```
+
+`c:\a.txt`文本文件。里面放着要下载的专栏的编号。分别用换行符隔开。
+
+```
+zhong-wen-sen
+chen-zi-long-50-58
+```
+
+#### 参数
+
+- --i：知乎答主的ID。如[https://www.zhihu.com/people/zhong-wen-sen/answers](https://www.zhihu.com/people/zhong-wen-sen/answers)的ID为“zhong-wen-sen”
+- --f：存放知乎答主ID文本文件的路径。
+
+可选参数：
+
+- --page：开始篇数，如要从第五篇开始`--page=5`
+
+#### 配置
+
+在`config`目录下新建一个`zhihu_answers_config.py`文件。
 
 ```
 DEFAULT_HEADERS = {
