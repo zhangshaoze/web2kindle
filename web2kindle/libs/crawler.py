@@ -114,7 +114,6 @@ class Task(dict):
         params.setdefault('priority', 0)
         params.setdefault('retry', 3)
 
-
         if re.match(r'^https?:/{2}\w.+$', params['url']):
             params['url'] = furl(params['url']).url
         else:
@@ -162,7 +161,7 @@ class Downloader(Thread):
             self.log.log_it("网络请求错误。错误信息:{} URL:{} Response:{}".format(str(e), task['url'], response), 'INFO')
             if task.get('retry', None):
                 if task.get('retried', 0) < task.get('retry'):
-                    task.update({'retried': task.get('retried', 0)})
+                    task.update({'retried': task.get('retried', 1) + 1})
                     self.log.log_it("重试任务 {}".format(task), 'INFO')
                     self.to_download_q.put(task)
             return
@@ -205,7 +204,7 @@ class Parser(Thread):
             self.log.log_it("RetryTask Exception.Task{}".format(task), 'INFO')
             if task.get('retry', None):
                 if task.get('retried', 0) < task.get('retry'):
-                    task.update({'retried': task.get('retried', 0)})
+                    task.update({'retried': task.get('retried', 1) + 1})
                     self.log.log_it("重试任务 {}".format(task), 'INFO')
                     self.to_download_q.put(task)
             return
