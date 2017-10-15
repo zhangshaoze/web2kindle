@@ -112,6 +112,8 @@ class Task(dict):
 
         params.setdefault('meta', {})
         params.setdefault('priority', 0)
+        params.setdefault('retry', 3)
+
 
         if re.match(r'^https?:/{2}\w.+$', params['url']):
             params['url'] = furl(params['url']).url
