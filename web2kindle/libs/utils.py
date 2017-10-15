@@ -28,8 +28,8 @@ class HTML2Kindle:
         with codecs.open(path, 'w', 'utf_8_sig') as f:
             f.write(rendered_content)
 
-    def make_content(self, title, content, path):
-        rendered_content = self.content_template.render(title=title, content=content)
+    def make_content(self, title, content, path, kw=None):
+        rendered_content = self.content_template.render(title=title, content=content, kw=kw)
         if not os.path.exists(os.path.split(path)[0]):
             os.makedirs((os.path.split(path)[0]))
         with codecs.open(path, 'w', 'utf_8_sig') as f:
