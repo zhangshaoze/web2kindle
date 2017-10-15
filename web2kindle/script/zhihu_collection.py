@@ -76,11 +76,16 @@ def parser_collection(task):
 
     for i in pq('.zm-item').items():
         if i('.author-link-line a').text():
-            title = i('.zm-item-title a').text() + '（作者：{}）'.format(i('.author-link-line a').text())
+            author_name = i('.answer-head a.author-link').text()
         else:
             # 防止重名
-            title = i('.zm-item-title a').text() + '（作者：{}）'.format('匿名{}'.format(int(time.time())))
+            author_name = '匿名{}'.format(int(time.time()))
+
+        title = i('.zm-item-title a').text() + '（作者：{}）'.format(author_name)
         content = i('.content').text()
+        voteup_count = i('a.zm-item-vote-count').text()
+        author_name = i('.answer-head a.author-link').text()
+        created_time = i('p.visible-expanded a').text()
 
         # 需要下载的静态资源
         download_img_list.extend(re.findall('src="(http.*?)"', content))
@@ -93,7 +98,9 @@ def parser_collection(task):
         article_path = format_file_name(title, '.html')
         opf.append({'id': article_path, 'href': article_path})
         html2kindle.make_content(title, content,
-                                 os.path.join(task['save_path'], format_file_name(title, '.html')))
+                                 os.path.join(task['save_path'], format_file_name(title, '.html')),
+                                 {'author_name': author_name, 'voteup_count': voteup_count,
+                                  'created_time': created_time})
 
     table_path = format_file_name(collection_name, '_table.html')
     opf_path = os.path.join(task['save_path'], format_file_name(collection_name, '.opf'))

@@ -5,10 +5,9 @@
 #         http://wax8280.github.io
 # Created on 2017/10/11 23:38
 
-import json
 import os
 import re
-from html import unescape
+import datetime
 from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
@@ -40,7 +39,7 @@ def main(zhihu_answers_list, page):
             'priority': 0,
             'save': {
                 'cursor': 0,
-                # 专栏ID
+                # 专栏ID`
                 'name': zhihu_answers,
                 'save_path': os.path.join(zhihu_zhuanlan_config.SAVE_PATH, zhihu_answers),
                 'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, page),
@@ -98,7 +97,7 @@ def get_auth(task):
     new_headers = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
     new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth.group(1))})
     new_task['meta']['headers'] = new_headers
-    new_task['save'].update({'headers':new_headers})
+    new_task['save'].update({'headers': new_headers})
     new_task.update({
         'url': api_url.format(task['save']['name'], task['save']['cursor']),
         'method': 'GET',
@@ -136,6 +135,7 @@ def get_answer(task):
         content = answer['content']
         comment_count = answer['comment_count']
         voteup_count = answer['voteup_count']
+        created_time = datetime.datetime.fromtimestamp(answer['created_time']).strftime('%Y-%m-%d')
 
         pq = PyQuery(content)
         # 删除无用的img标签
@@ -152,7 +152,9 @@ def get_answer(task):
         opf.append({'href': format_file_name(title, '.html')})
 
         html2kindle.make_content(title, content,
-                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
+                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
+                                 {'author_name': author_name, 'voteup_count': voteup_count,
+                                  'created_time': created_time})
 
     if opf:
         opf_name = task['save']['name'] + '（第{}~{}篇）'.format(task['save']['cursor'], task['save']['cursor'] + 20)
@@ -164,7 +166,7 @@ def get_answer(task):
     img_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
     img_header.update({'Referer': task['save']['base_url']})
     for img_url in download_img_list:
-        new_tasks_list.append(Task({
+        new_tasks_list.append(Task.make_task({
             'url': img_url,
             'method': 'GET',
             'meta': {'headers': img_header, 'verify': False},

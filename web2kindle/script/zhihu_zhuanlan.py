@@ -77,7 +77,11 @@ def parser_content(task):
 
         raw_json = re.search('<textarea id="preloadedState" hidden>(.*?)</textarea>', text).group(1)
         post = json.loads(raw_json)['database']['Post']
-        content = post[list(post.keys())[0]]['content']
+        post=post[list(post.keys())[0]]
+        content = post['content']
+        author_name=post['author']
+        created_time=post['publishedTime']
+        voteup_count=post['likeCount']
 
 
         pq = PyQuery(content)
@@ -93,12 +97,14 @@ def parser_content(task):
         content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
         content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
 
-        html2kindle.make_content(title, content, os.path.join(task['save_path'], format_file_name(title, '.html')))
+        html2kindle.make_content(title, content, os.path.join(task['save_path'], format_file_name(title, '.html')),
+                                 {'author_name': author_name, 'voteup_count': voteup_count,
+                                  'created_time': created_time})
 
         img_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
         img_header.update({'Referer': response.url})
         for img_url in download_img_list:
-            new_tasks.append(Task({
+            new_tasks.append(Task.make_task({
                 'url': img_url,
                 'method': 'GET',
                 'meta': {'headers': img_header, 'verify': False},
@@ -138,7 +144,7 @@ def parser_list(task):
         # item['title']为文章的标题
         opf.append({'href': format_file_name(item['title'], '.html')})
         save = deepcopy(task['save'])
-        new_task = Task({
+        new_task = Task.make_task({
             'url': 'https://zhuanlan.zhihu.com' + item['url'],
             'method': 'GET',
             'meta': task['meta'],
