@@ -7,7 +7,6 @@
 import re
 import os
 import traceback
-from copy import deepcopy
 from queue import PriorityQueue, Empty, Queue
 
 import requests
@@ -16,11 +15,12 @@ from threading import Thread, Condition
 from furl import furl
 
 from web2kindle.libs.log import Log
-from web2kindle.config import config
+from web2kindle.libs.utils import load_config
 
 # 禁用安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 cond = Condition()
+config = load_config('./web2kindle/config/config.yml')
 
 
 class RetryTask(Exception):
@@ -156,7 +156,7 @@ class Downloader(Thread):
             if re.match(r'^https?:/{2}\w.+$', task['url']):
                 response = self.session.request(task['method'], task['url'], **task.get('meta', {}))
         except Exception as e:
-            traceback.print_exc(file=open(os.path.join(config.LOG_PATH, 'downlaoder_traceback'), 'a'))
+            traceback.print_exc(file=open(os.path.join(config.get('LOG_PATH'), 'downlaoder_traceback'), 'a'))
             traceback.print_exc()
             self.log.log_it("网络请求错误。错误信息:{} URL:{} Response:{}".format(str(e), task['url'], response), 'INFO')
             if task.get('retry', None):
@@ -209,7 +209,7 @@ class Parser(Thread):
                     self.to_download_q.put(task)
             return
         except Exception as e:
-            traceback.print_exc(file=open(os.path.join(config.LOG_PATH, 'parser_traceback'), 'a'))
+            traceback.print_exc(file=open(os.path.join(config.get('LOG_PATH'), 'parser_traceback'), 'a'))
             traceback.print_exc()
             self.log.log_it("解析错误。错误信息：{}。Task：{}".format(str(e), task), 'WARN')
 
@@ -231,8 +231,8 @@ class Crawler:
     def __init__(self, to_download_q,
                  downloader_parser_q,
                  result_q,
-                 parser_worker_count=1,
-                 downloader_worker_count=1,
+                 parser_worker_count=config.get('PARSER_WORKER'),
+                 downloader_worker_count=config.get('DOWNLOADER_WORKER'),
                  session=requests.session()):
         self.parser_worker_count = parser_worker_count
         self.downloader_worker_count = downloader_worker_count

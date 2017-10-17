@@ -6,7 +6,10 @@ import sys
 import os
 from logging.handlers import WatchedFileHandler
 from functools import partial
-from web2kindle.config import config
+from web2kindle.libs.utils import load_config
+print(os.getcwd())
+
+config=load_config('./web2kindle/config/config.yml')
 
 
 class BaseLog(object):
@@ -26,7 +29,7 @@ class BaseLog(object):
     @staticmethod
     def get_logger(logger_name):
 
-        failed_path = os.path.join(config.LOG_PATH, logger_name)
+        failed_path = os.path.join(config['LOG_PATH'], logger_name)
         if not os.path.exists(failed_path):
             os.makedirs(failed_path)
 
@@ -41,7 +44,7 @@ class BaseLog(object):
             stream_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
             logger.addHandler(stream_handler)
-            logger.setLevel(config.LOG_LEVEL)
+            logger.setLevel(config.get('LOG_LEVEL','DEBUG'))
             BaseLog.logger_dict[logger_name] = logger
         return BaseLog.logger_dict[logger_name]
 

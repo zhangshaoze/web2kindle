@@ -8,6 +8,7 @@ import codecs
 import os
 import re
 import yaml
+from functools import partial
 from multiprocessing import cpu_count
 
 from jinja2 import Environment, PackageLoader
@@ -46,8 +47,9 @@ class HTML2Kindle:
         with codecs.open(path, 'w', 'utf_8_sig') as f:
             f.write(rendered_content)
 
-    def _mkae_book(self, path):
-        os.system("{} {}".format(self.kindlegen_path, path))
+    @staticmethod
+    def _make_book(kindlegen_path, path):
+        os.system("{} {}".format(kindlegen_path, path))
 
     def make_book_multi(self, rootdir):
         from multiprocessing import Pool
@@ -57,7 +59,7 @@ class HTML2Kindle:
             if not os.path.isdir(os.path.join(rootdir, os.path.join(rootdir, i))):
                 if i.lower().endswith('opf'):
                     path_l.append(os.path.join(rootdir, i))
-        pool.map(self._mkae_book, path_l)
+        pool.map(partial(self._make_book, self.kindlegen_path), path_l)
 
     def make_book(self, rootdir):
         for i in os.listdir(rootdir):
