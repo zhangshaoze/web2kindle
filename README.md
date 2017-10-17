@@ -2,6 +2,27 @@
 
 `Web2Kindle`是一个批量获取某些网页并将其转换为适合Kindle观看的电子书的程序。
 
+# TODO
+* 知乎登录功能
+* Task注册功能（自动判断无任务）
+
+# 更新日志
+
+### 0.1.0.0
+
+测试版第一版
+
+### 0.1.0.1
+
+* 修复了一直重试的Bug，默认重试次数为3。
+* 文章里面可以显示作者、创建时间、赞数。
+* 设置开始和结束的范围（page参数以荒废）。
+* 修复了专栏倒叙的Bug。
+* 配置文件更改为YAML格式。
+* 可以修改`Download`和`Parser`的数量。
+
+
+
 # 使用方法
 
 ## 安装Python
@@ -17,7 +38,7 @@ pip install -r requirement
 
 ## 配置
 
-配置文件在`config`目录下。配置文件其实是一个`.py`文件。
+配置文件在`config`目录下。配置文件其实是一个`yml`文件。
 
 参考[配置](./配置)与[脚本](脚本)两章配置好配置文件。
 
@@ -86,16 +107,15 @@ Q
 
 # 配置
 
-配置文件在`config`目录下。配置文件其实是一个`py`文件。对于每个单独的脚本都有不同的配置文件，另有一个`config.py`通用配置文件。
-
-为了不用转义，对于所有路径名，请使用raw字符串（r'......'或r"......"）。
+配置文件在`config`目录下。配置文件其实是一个`yml`文件，该文件以`yml`为后缀名。对于每个单独的脚本都有不同的配置文件，另有一个`config.yml`通用配置文件。
 
 ## config.py
 
 ```
-KINDLEGEN_PATH = r'C:\Users\web2kinle_save\kindlegen.exe'
-LOG_PATH = r'C:\Users\web2kinle_save\log'
-LOG_LEVEL = 'DEBUG'
+# 注意冒号旁的两个空格
+KINDLEGEN_PATH : 'C:\Users\web2kinle_save\kindlegen.exe'
+LOG_PATH : 'C:\Users\web2kinle_save\log'
+LOG_LEVEL : 'DEBUG'
 ```
 
 - KINDLEGEN_PATH：KindleGen.exe程序所在路径
@@ -140,18 +160,19 @@ python main.py zhihu_collection --f="c:\a.txt"
 
 可选参数：
 
-- --page：开始页码数，如要从第五页开始`--page=5`
+- --start：开始页码数，如要从第五页开始`--start=5`
+- --end:结束页码数，如要第十页结束`--end=10`
 
 #### 配置
 
-在`config`目录下新建一个`zhihu_collection_config.py`文件。
+在`config`目录下新建一个`zhihu_collection_config.yml`文件。
 
 ```
-DEFAULT_HEADERS = {
+DEFAULT_HEADERS : {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
 }
 
-SAVE_PATH = r'C:\Users\web2kinle_save'
+SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
 - DEFAULT_HEADERS：请求头，默认即可。
@@ -182,18 +203,19 @@ alenxwn
 
 可选参数：
 
-- --page：开始篇数，如要从第五篇开始`--page=5`
+- --start：开始篇数，如要从第五篇开始`--start=5`
+- --end:结束篇数，如要第十篇结束`--end=10`
 
 #### 配置
 
-在`config`目录下新建一个`zhihu_zhuanlan_config.py`文件。
+在`config`目录下新建一个`zhihu_zhuanlan_config.yml`文件。
 
 ```
-DEFAULT_HEADERS = {
+DEFAULT_HEADERS : {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
 }
 
-SAVE_PATH = r'C:\Users\web2kinle_save'
+SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
 - DEFAULT_HEADERS：请求头，默认即可。
@@ -225,18 +247,19 @@ chen-zi-long-50-58
 
 可选参数：
 
-- --page：开始篇数，如要从第五篇开始`--page=5`
+- --start：开始篇数，如要从第五篇开始`--start=5`
+- --end:结束篇数，如要第十篇结束`--end=10`
 
 #### 配置
 
-在`config`目录下新建一个`zhihu_answers_config.py`文件。
+在`config`目录下新建一个`zhihu_answers_config.yml`文件。
 
 ```
 DEFAULT_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
 }
 
-SAVE_PATH = r'C:\Users\web2kinle_save'
+SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
 - DEFAULT_HEADERS：请求头，默认即可。

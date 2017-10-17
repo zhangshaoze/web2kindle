@@ -3,3 +3,4 @@ jinja2
 pyquery
 click
 furl
+pyyaml
