@@ -231,8 +231,8 @@ class Crawler:
     def __init__(self, to_download_q,
                  downloader_parser_q,
                  result_q,
-                 parser_worker_count=config.get('PARSER_WORKER'),
-                 downloader_worker_count=config.get('DOWNLOADER_WORKER'),
+                 parser_worker_count=config.get('PARSER_WORKER', 1),
+                 downloader_worker_count=config.get('DOWNLOADER_WORKER', 1),
                  session=requests.session()):
         self.parser_worker_count = parser_worker_count
         self.downloader_worker_count = downloader_worker_count

@@ -15,7 +15,11 @@ from jinja2 import Environment, PackageLoader
 
 
 def load_config(path):
-    return yaml.load(open(path))
+    try:
+        f = open(path, 'r', encoding='utf-8')
+    except UnicodeDecodeError:
+        f = open(path, 'r')
+    return yaml.load(f)
 
 
 class HTML2Kindle:
