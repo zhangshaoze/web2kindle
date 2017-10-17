@@ -24,7 +24,7 @@ log = Log("zhihu_answers")
 api_url = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
 
 
-def main(zhihu_answers_list, page):
+def main(zhihu_answers_list, start, end):
     iq = PriorityQueue()
     oq = PriorityQueue()
     result_q = Queue()
@@ -32,17 +32,19 @@ def main(zhihu_answers_list, page):
 
     for zhihu_answers in zhihu_answers_list:
         task = Task.make_task({
-            'url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, page),
+            'url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             'method': 'GET',
             'meta': {'headers': zhihu_zhuanlan_config.DEFAULT_HEADERS, 'verify': False},
             'parser': get_main_js,
             'priority': 0,
             'save': {
                 'cursor': 0,
+                'start': start,
+                'end': end,
                 # 专栏ID`
                 'name': zhihu_answers,
                 'save_path': os.path.join(zhihu_zhuanlan_config.SAVE_PATH, zhihu_answers),
-                'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, page),
+                'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             },
             'retry': 3,
         })
@@ -116,7 +118,7 @@ def get_answer(task):
 
     json_data = response.json()
 
-    if json_data['paging']['is_end'] is False:
+    if json_data['paging']['is_end'] is False and task['save']['cursor'] < task['save']['end'] - 20:
         new_task = deepcopy(task)
         new_task['save']['cursor'] += 20
         new_task.update({
@@ -163,17 +165,17 @@ def get_answer(task):
         html2kindle.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
         html2kindle.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
 
-    img_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
-    img_header.update({'Referer': task['save']['base_url']})
-    for img_url in download_img_list:
-        new_tasks_list.append(Task.make_task({
-            'url': img_url,
-            'method': 'GET',
-            'meta': {'headers': img_header, 'verify': False},
-            'parser': parser_downloader_img,
-            'save_path': task['save']['save_path'],
-            'priority': 3,
-        }))
+    # img_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
+    # img_header.update({'Referer': task['save']['base_url']})
+    # for img_url in download_img_list:
+    #     new_tasks_list.append(Task.make_task({
+    #         'url': img_url,
+    #         'method': 'GET',
+    #         'meta': {'headers': img_header, 'verify': False},
+    #         'parser': parser_downloader_img,
+    #         'save_path': task['save']['save_path'],
+    #         'priority': 3,
+    #     }))
 
     return None, new_tasks_list
 
@@ -186,4 +188,4 @@ def parser_downloader_img(task):
 
 
 if __name__ == '__main__':
-    main(['chen-zi-long-50-58'], 1)
+    main(['chen-zi-long-50-58'], 1, 20)

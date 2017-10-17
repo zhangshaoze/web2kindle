@@ -22,7 +22,7 @@ html2kindle = HTML2Kindle()
 log = Log('zhihu_collection')
 
 
-def main(collection_num_list, page):
+def main(collection_num_list, start, end):
     iq = PriorityQueue()
     oq = PriorityQueue()
     result_q = Queue()
@@ -30,13 +30,14 @@ def main(collection_num_list, page):
 
     for collection_num in collection_num_list:
         task = Task.make_task({
-            'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, page),
+            'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, start),
             'method': 'GET',
             'meta': {'headers': zhihu_collection_config.DEFAULT_HEADERS, 'verify': False},
             'parser': parser_collection,
             'priority': 0,
             'retry': 3,
-            'save_path': os.path.join(zhihu_collection_config.SAVE_PATH, str(collection_num))
+            'save': {'start': start, 'end': end,
+                     'save_path': os.path.join(zhihu_collection_config.SAVE_PATH, str(collection_num))},
         })
         iq.put(task)
     crawler.start()
@@ -47,7 +48,7 @@ def main(collection_num_list, page):
 
 def parser_downloader_img(task):
     if task['response']:
-        write(os.path.join(task['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
               task['response'].content, mode='wb')
     else:
         log.log_it("无法下载图片（无Response）。URL：{}".format(task['url']), 'WARN')
@@ -65,13 +66,13 @@ def parser_collection(task):
     new_tasks = []
     opf = []
 
-    page_num = re.search('page=(\d*)$', response.url)
-    if page_num:
-        page_num = page_num.group(1)
+    now_page_num = re.search('page=(\d*)$', response.url)
+    if now_page_num:
+        now_page_num = int(now_page_num.group(1))
     else:
-        page_num = 1
+        now_page_num = 1
 
-    collection_name = pq('.zm-item-title').eq(0).text().strip() + ' 第{}页'.format(page_num)
+    collection_name = pq('.zm-item-title').eq(0).text().strip() + ' 第{}页'.format(now_page_num)
     log.log_it("获取收藏夹[{}]".format(collection_name), 'INFO')
 
     for i in pq('.zm-item').items():
@@ -98,22 +99,23 @@ def parser_collection(task):
         article_path = format_file_name(title, '.html')
         opf.append({'id': article_path, 'href': article_path})
         html2kindle.make_content(title, content,
-                                 os.path.join(task['save_path'], format_file_name(title, '.html')),
+                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
 
     table_path = format_file_name(collection_name, '_table.html')
-    opf_path = os.path.join(task['save_path'], format_file_name(collection_name, '.opf'))
-    html2kindle.make_table(opf, os.path.join(task['save_path'], table_path))
+    opf_path = os.path.join(task['save']['save_path'], format_file_name(collection_name, '.opf'))
+    html2kindle.make_table(opf, os.path.join(task['save']['save_path'], table_path))
     html2kindle.make_opf(collection_name, opf, table_path, opf_path)
 
     # Get next page url
-    pq.make_links_absolute(response.url)
-    next_page = pq('.zm-invite-pager span:last a').eq(0).attr('href')
-    if next_page:
-        next_page_task = deepcopy(task)
-        next_page_task.update({'url': next_page, 'priority': 0})
-        new_tasks.append(next_page_task)
+    if now_page_num < task['save']['end']:
+        pq.make_links_absolute(response.url)
+        next_page = pq('.zm-invite-pager span:last a').eq(0).attr('href')
+        if next_page:
+            next_page_task = deepcopy(task)
+            next_page_task.update({'url': next_page, 'priority': 0})
+            new_tasks.append(next_page_task)
 
     img_header = deepcopy(zhihu_collection_config.DEFAULT_HEADERS)
     img_header.update({'Referer': response.url})
@@ -124,11 +126,11 @@ def parser_collection(task):
             'meta': {'headers': img_header, 'verify': False},
             'parser': parser_downloader_img,
             'priority': 5,
-            'save_path': task['save_path']
+            'save': task['save']
         }))
 
     return None, new_tasks
 
 
 if __name__ == '__main__':
-    main(['67258836'], 1)
+    main(['19903734'], 1, 2)

@@ -4,7 +4,6 @@
 # Author: Vincent<vincent8280@outlook.com>
 #         http://wax8280.github.io
 # Created on 2017/10/10 14:05
-
 import json
 import os
 import re
@@ -23,7 +22,7 @@ html2kindle = HTML2Kindle()
 log = Log("zhihu_zhuanlan")
 
 
-def main(zhuanlan_name_list, page):
+def main(zhuanlan_name_list, start, end):
     iq = PriorityQueue()
     oq = PriorityQueue()
     result_q = Queue()
@@ -33,16 +32,18 @@ def main(zhuanlan_name_list, page):
         new_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
         new_header.update({'Referer': 'https://zhuanlan.zhihu.com/{}'.format(zhuanlan_name)})
         task = Task.make_task({
-            'url': 'https://zhuanlan.zhihu.com/api/columns/{}/posts?limit=20&offset={}'.format(zhuanlan_name, page),
+            'url': 'https://zhuanlan.zhihu.com/api/columns/{}/posts?limit=20&offset={}'.format(zhuanlan_name, start),
             'method': 'GET',
             'meta': {'headers': new_header, 'verify': False},
             'parser': parser_list,
             'priority': 0,
-            'save': {'cursor': 0},
+            'save': {'cursor': 0,
+                     'save_path': os.path.join(zhihu_zhuanlan_config.SAVE_PATH, zhuanlan_name),
+                     'start': start,
+                     'end': end},
             # 专栏ID
             'name': zhuanlan_name,
             'retry': 3,
-            'save_path': os.path.join(zhihu_zhuanlan_config.SAVE_PATH, zhuanlan_name)
         })
 
         iq.put(task)
@@ -55,7 +56,7 @@ def main(zhuanlan_name_list, page):
 
 def parser_downloader_img(task):
     if task['response']:
-        write(os.path.join(task['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
               task['response'].content, mode='wb')
     return None, None
 
@@ -77,12 +78,11 @@ def parser_content(task):
 
         raw_json = re.search('<textarea id="preloadedState" hidden>(.*?)</textarea>', text).group(1)
         post = json.loads(raw_json)['database']['Post']
-        post=post[list(post.keys())[0]]
+        post = post[list(post.keys())[0]]
         content = post['content']
-        author_name=post['author']
-        created_time=post['publishedTime']
-        voteup_count=post['likeCount']
-
+        author_name = post['author']
+        created_time = post['publishedTime']
+        voteup_count = post['likeCount']
 
         pq = PyQuery(content)
         # 删除无用的img标签
@@ -97,7 +97,8 @@ def parser_content(task):
         content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
         content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
 
-        html2kindle.make_content(title, content, os.path.join(task['save_path'], format_file_name(title, '.html')),
+        html2kindle.make_content(title, content,
+                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
 
@@ -109,11 +110,14 @@ def parser_content(task):
                 'method': 'GET',
                 'meta': {'headers': img_header, 'verify': False},
                 'parser': parser_downloader_img,
-                'save_path': task['save_path'],
+                'save': task['save'],
                 'priority': 10,
             }))
+    except RetryTask:
+        html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
+        raise RetryTask
     except Exception:
-        html2kindle.make_content(title, '', os.path.join(task['save_path'], format_file_name(title, '.html')))
+        html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
         raise Exception
 
     return None, new_tasks
@@ -128,43 +132,44 @@ def parser_list(task):
         raise RetryTask
 
     data = json.loads(response.text)
+    data.reverse()
 
     if len(data) != 0:
-        # TODO：if ban?
-        log.log_it('不能读取列表数据？（是否已经完结？） {}'.format(response.url), 'INFO')
-        next_page_task = deepcopy(task)
-        next_page_task.update(
-            {'url': re.sub('offset=\d+', 'offset={}'.format(task['save']['cursor'] + 20), next_page_task['url'])})
-        next_page_task['save'].update({'cursor': next_page_task['save']['cursor'] + 20})
-        new_tasks.append(next_page_task)
+        if task['save']['cursor'] < task['save']['end'] - 20:
+            # TODO：if ban?
+            log.log_it('不能读取列表数据？（是否已经完结？） {}'.format(response.url), 'INFO')
+            next_page_task = deepcopy(task)
+            next_page_task.update(
+                {'url': re.sub('offset=\d+', 'offset={}'.format(task['save']['cursor'] + 20), next_page_task['url'])})
+            next_page_task['save'].update({'cursor': next_page_task['save']['cursor'] + 20})
+            new_tasks.append(next_page_task)
     else:
         return None, None
 
     for item in data:
         # item['title']为文章的标题
         opf.append({'href': format_file_name(item['title'], '.html')})
-        save = deepcopy(task['save'])
         new_task = Task.make_task({
             'url': 'https://zhuanlan.zhihu.com' + item['url'],
             'method': 'GET',
             'meta': task['meta'],
             'parser': parser_content,
             'priority': 5,
-            'save': save,
+            'save': task['save'],
             'name': task['name'],
             'title': item['title'],
-            'save_path': task['save_path']
         })
         new_tasks.append(new_task)
     if opf:
         zhuanlan_name = task['name'] + '（第{}页）'.format(str(task['save']['cursor']))
-        opf_path = os.path.join(task['save_path'], format_file_name(zhuanlan_name, '.opf'))
+        opf_path = os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '.opf'))
 
-        html2kindle.make_table(opf, os.path.join(task['save_path'], format_file_name(zhuanlan_name, '_table.html')))
+        html2kindle.make_table(opf,
+                               os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '_table.html')))
         html2kindle.make_opf(zhuanlan_name, opf, format_file_name(zhuanlan_name, '_table.html'), opf_path)
 
     return None, new_tasks
 
 
 if __name__ == '__main__':
-    main(['vinca520'], 0)
+    main(['limiao'], 0, 30)

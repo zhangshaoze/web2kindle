@@ -17,16 +17,17 @@ def cli():
 @cli.command('zhihu_collection')
 @click.option('--i')
 @click.option('--f')
-@click.option('--page', default=1)
-def zhihu_collection_main(i, f, page):
+@click.option('--start', default=1)
+@click.option('--end', default=float('inf'))
+def zhihu_collection_main(i, f, start, end):
     import web2kindle.script.zhihu_collection
 
     if i:
-        web2kindle.script.zhihu_collection.main([i], page)
+        web2kindle.script.zhihu_collection.main([i], start, end)
     elif f:
         collection_list = read_file(f)
         if isinstance(collection_list, list):
-            web2kindle.script.zhihu_collection.main(collection_list, page)
+            web2kindle.script.zhihu_collection.main(collection_list, start, end)
         else:
             click.echo(collection_list)
 
@@ -34,7 +35,8 @@ def zhihu_collection_main(i, f, page):
 @cli.command('zhihu_zhuanlan')
 @click.option('--i')
 @click.option('--f')
-@click.option('--page', default=0)
+@click.option('--start', default=1)
+@click.option('--end', default=float('inf'))
 def zhihu_zhuanlan_main(i, f, page):
     import web2kindle.script.zhihu_zhuanlan
 
@@ -47,10 +49,12 @@ def zhihu_zhuanlan_main(i, f, page):
         else:
             click.echo(zhuanlan_list)
 
+
 @cli.command('zhihu_answers')
 @click.option('--i')
 @click.option('--f')
-@click.option('--page', default=1)
+@click.option('--start', default=1)
+@click.option('--end', default=float('inf'))
 def zhihu_answers_main(i, f, page):
     import web2kindle.script.zhihu_answers
 
@@ -62,6 +66,7 @@ def zhihu_answers_main(i, f, page):
             web2kindle.script.zhihu_answers.main(people_list, page)
         else:
             click.echo(people_list)
+
 
 if __name__ == '__main__':
     cli()
