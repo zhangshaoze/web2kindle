@@ -13,13 +13,13 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config
 from web2kindle.libs.log import Log
 from pyquery import PyQuery
 
-from web2kindle.config import zhihu_zhuanlan_config
-
-html2kindle = HTML2Kindle()
+zhihu_zhuanlan_config = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
+config = load_config('./web2kindle/config/config.yml')
+html2kindle = HTML2Kindle(config['KINDLEGEN_PATH'])
 log = Log("zhihu_answers")
 api_url = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
 
@@ -34,7 +34,7 @@ def main(zhihu_answers_list, start, end):
         task = Task.make_task({
             'url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             'method': 'GET',
-            'meta': {'headers': zhihu_zhuanlan_config.DEFAULT_HEADERS, 'verify': False},
+            'meta': {'headers': zhihu_zhuanlan_config.get('DEFAULT_HEADERS'), 'verify': False},
             'parser': get_main_js,
             'priority': 0,
             'save': {
@@ -43,7 +43,7 @@ def main(zhihu_answers_list, start, end):
                 'end': end,
                 # 专栏ID`
                 'name': zhihu_answers,
-                'save_path': os.path.join(zhihu_zhuanlan_config.SAVE_PATH, zhihu_answers),
+                'save_path': os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], zhihu_answers),
                 'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             },
             'retry': 3,
@@ -52,7 +52,7 @@ def main(zhihu_answers_list, start, end):
 
     crawler.start()
     for zhihu_answers in zhihu_answers_list:
-        html2kindle.make_book_multi(os.path.join(zhihu_zhuanlan_config.SAVE_PATH, str(zhihu_answers)))
+        html2kindle.make_book_multi(os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], str(zhihu_answers)))
     os._exit(0)
 
 
@@ -69,7 +69,7 @@ def get_main_js(task):
         raise RetryTask
     js_url = 'https://static.zhihu.com/heifetz/main.app.{}'.format(js_id.group(1))
 
-    new_headers = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
+    new_headers = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
     new_headers.update({"Referer": task['save']['base_url']})
     new_task = deepcopy(task)
     new_task['meta']['headers'] = new_headers
@@ -96,7 +96,7 @@ def get_auth(task):
         raise RetryTask
 
     new_task = deepcopy(task)
-    new_headers = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
+    new_headers = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
     new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth.group(1))})
     new_task['meta']['headers'] = new_headers
     new_task['save'].update({'headers': new_headers})
@@ -165,17 +165,17 @@ def get_answer(task):
         html2kindle.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
         html2kindle.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
 
-    # img_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
-    # img_header.update({'Referer': task['save']['base_url']})
-    # for img_url in download_img_list:
-    #     new_tasks_list.append(Task.make_task({
-    #         'url': img_url,
-    #         'method': 'GET',
-    #         'meta': {'headers': img_header, 'verify': False},
-    #         'parser': parser_downloader_img,
-    #         'save_path': task['save']['save_path'],
-    #         'priority': 3,
-    #     }))
+    img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
+    img_header.update({'Referer': task['save']['base_url']})
+    for img_url in download_img_list:
+        new_tasks_list.append(Task.make_task({
+            'url': img_url,
+            'method': 'GET',
+            'meta': {'headers': img_header, 'verify': False},
+            'parser': parser_downloader_img,
+            'save_path': task['save']['save_path'],
+            'priority': 3,
+        }))
 
     return None, new_tasks_list
 

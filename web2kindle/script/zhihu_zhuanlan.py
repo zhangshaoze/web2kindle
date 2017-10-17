@@ -12,13 +12,13 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config
 from web2kindle.libs.log import Log
 from pyquery import PyQuery
 
-from web2kindle.config import zhihu_zhuanlan_config
-
-html2kindle = HTML2Kindle()
+zhihu_zhuanlan_config = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
+config = load_config('./web2kindle/config/config.yml')
+html2kindle = HTML2Kindle(config['KINDLEGEN_PATH'])
 log = Log("zhihu_zhuanlan")
 
 
@@ -29,7 +29,7 @@ def main(zhuanlan_name_list, start, end):
     crawler = Crawler(iq, oq, result_q)
 
     for zhuanlan_name in zhuanlan_name_list:
-        new_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
+        new_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
         new_header.update({'Referer': 'https://zhuanlan.zhihu.com/{}'.format(zhuanlan_name)})
         task = Task.make_task({
             'url': 'https://zhuanlan.zhihu.com/api/columns/{}/posts?limit=20&offset={}'.format(zhuanlan_name, start),
@@ -38,7 +38,7 @@ def main(zhuanlan_name_list, start, end):
             'parser': parser_list,
             'priority': 0,
             'save': {'cursor': 0,
-                     'save_path': os.path.join(zhihu_zhuanlan_config.SAVE_PATH, zhuanlan_name),
+                     'save_path': os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], zhuanlan_name),
                      'start': start,
                      'end': end},
             # 专栏ID
@@ -50,7 +50,7 @@ def main(zhuanlan_name_list, start, end):
 
     crawler.start()
     for zhuanlan_name in zhuanlan_name_list:
-        html2kindle.make_book_multi(os.path.join(zhihu_zhuanlan_config.SAVE_PATH, str(zhuanlan_name)))
+        html2kindle.make_book_multi(os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], str(zhuanlan_name)))
     os._exit(0)
 
 
@@ -102,7 +102,7 @@ def parser_content(task):
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
 
-        img_header = deepcopy(zhihu_zhuanlan_config.DEFAULT_HEADERS)
+        img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
         img_header.update({'Referer': response.url})
         for img_url in download_img_list:
             new_tasks.append(Task.make_task({
