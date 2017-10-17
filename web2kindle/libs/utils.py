@@ -7,19 +7,23 @@
 import codecs
 import os
 import re
+import yaml
 from multiprocessing import cpu_count
 
 from jinja2 import Environment, PackageLoader
 
-from web2kindle.config import config
+
+def load_config(path):
+    return yaml.load(open(path))
 
 
 class HTML2Kindle:
-    def __init__(self):
+    def __init__(self, kindlegen_path):
         self.template_env = Environment(loader=PackageLoader('web2kindle'))
         self.content_template = self.template_env.get_template('kindle_content.html')
         self.opf_template = self.template_env.get_template('kindle.html')
         self.index_template = self.template_env.get_template('kindle_index.html')
+        self.kindlegen_path = kindlegen_path
 
     def make_opf(self, title, navigation, table_href, path):
         rendered_content = self.opf_template.render(title=title, navigation=navigation, table_href=table_href)
@@ -42,9 +46,8 @@ class HTML2Kindle:
         with codecs.open(path, 'w', 'utf_8_sig') as f:
             f.write(rendered_content)
 
-    @staticmethod
-    def _mkae_book(path):
-        os.system("{} {}".format(config.KINDLEGEN_PATH, path))
+    def _mkae_book(self, path):
+        os.system("{} {}".format(self.kindlegen_path, path))
 
     def make_book_multi(self, rootdir):
         from multiprocessing import Pool
@@ -60,7 +63,7 @@ class HTML2Kindle:
         for i in os.listdir(rootdir):
             if not os.path.isdir(os.path.join(rootdir, i)):
                 if i.lower().endswith('opf'):
-                    os.system("{} {}".format(config.KINDLEGEN_PATH, os.path.join(rootdir, i)))
+                    os.system("{} {}".format(self.kindlegen_path, os.path.join(rootdir, i)))
 
 
 def write(folder_path, file_path, content, mode='wb'):
