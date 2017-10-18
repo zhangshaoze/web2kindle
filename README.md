@@ -4,7 +4,6 @@
 
 # TODO
 * 知乎登录功能
-* Task注册功能（自动判断无任务）
 
 # 更新日志
 
@@ -16,10 +15,14 @@
 
 * 修复了一直重试的Bug，默认重试次数为3。
 * 文章里面可以显示作者、创建时间、赞数。
-* 设置开始和结束的范围（page参数以荒废）。
+* 设置开始和结束的范围（page参数已荒废）。
 * 修复了专栏倒叙的Bug。
 * 配置文件更改为YAML格式。
 * 可以修改`Download`和`Parser`的数量。
+
+### 0.1.1.0
+
+* Task注册功能（自动判断无任务）
 
 
 
@@ -116,11 +119,15 @@ Q
 KINDLEGEN_PATH : 'C:\Users\web2kinle_save\kindlegen.exe'
 LOG_PATH : 'C:\Users\web2kinle_save\log'
 LOG_LEVEL : 'DEBUG'
+DOWNLOADER_WORKER : 1
+PARSER_WORKER : 1
 ```
 
 - KINDLEGEN_PATH：KindleGen.exe程序所在路径
 - LOG_PATH：日志文件
 - LOG_LEVEL：日志等级
+- DOWNLOADER_WORKER：启动Downloader的数量，建议为1~3。
+- PARSER_WORKER：启动Parser的数量，建议为1。
 
 # 脚本
 
@@ -161,7 +168,7 @@ python main.py zhihu_collection --f="c:\a.txt"
 可选参数：
 
 - --start：开始页码数，如要从第五页开始`--start=5`
-- --end:结束页码数，如要第十页结束`--end=10`
+- --end：结束页码数，如要第十页结束`--end=10`
 
 #### 配置
 
@@ -204,7 +211,7 @@ alenxwn
 可选参数：
 
 - --start：开始篇数，如要从第五篇开始`--start=5`
-- --end:结束篇数，如要第十篇结束`--end=10`
+- --end：结束篇数，如要第十篇结束`--end=10`
 
 #### 配置
 
@@ -248,7 +255,7 @@ chen-zi-long-50-58
 可选参数：
 
 - --start：开始篇数，如要从第五篇开始`--start=5`
-- --end:结束篇数，如要第十篇结束`--end=10`
+- --end：结束篇数，如要第十篇结束`--end=10`
 
 #### 配置
 
