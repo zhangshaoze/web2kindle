@@ -8,11 +8,26 @@ import codecs
 import os
 import re
 import yaml
+import hashlib
 from functools import partial
+from functools import wraps
+
 from multiprocessing import cpu_count
 
 from jinja2 import Environment, PackageLoader
 
+md5string = lambda x: hashlib.md5(x.encode()).hexdigest()
+
+def singleton(cls):
+    instances = {}
+
+    @wraps(cls)
+    def getinstance(*args, **kw):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kw)
+        return instances[cls]
+
+    return getinstance
 
 def load_config(path):
     try:

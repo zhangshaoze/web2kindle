@@ -7,15 +7,16 @@
 import re
 import os
 import traceback
+import time
 from queue import PriorityQueue, Empty, Queue
 
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from threading import Thread, Condition
+from threading import Thread, Condition, Lock
 from furl import furl
 
 from web2kindle.libs.log import Log
-from web2kindle.libs.utils import load_config
+from web2kindle.libs.utils import load_config, singleton, md5string
 
 # 禁用安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -31,20 +32,14 @@ class Task(dict):
     """
     'task': {
         'tid': str,                         md5(request.url + request.data)
+        'method':str                        HTTP method
+        'url':str                           URL
+        'parser': function
         'priority': int,                    Priority of task
         'retried': int,                     Retried count
         'retry': int,                       Retry time
         'meta':dict                         A dict to some config or something to save
         {
-            'retry': int                    The count of retry.Default: 0
-            'retry_wait': int               Default: 3
-            'catty.config.DUPE_FILTER': bool             Default: False
-        },
-
-        'request': dict
-        {
-            'method':str                    HTTP method
-            'url':str                       URL
             'params':dict/bytes             (optional) Dictionary or bytes to be sent in the query string
             'data':dict/list                (optional) Dictionary or list of tuples [(key, value)]
                                             (will be form-encoded), bytes, or file-like object
@@ -67,9 +62,7 @@ class Task(dict):
             'stream':bool                   (optional) if False, the response content will be immediately downloaded.
             'cert':str/tuple                (optional) if String, path to ssl client cert file (.pem).
                                             If Tuple, ('cert', 'key') pair.
-        }
-
-        'parser': function
+        },
 
         'response': requests.models.Response,
         # for detail:http://docs.python-requests.org/en/master/api/#requests.Response
@@ -110,9 +103,11 @@ class Task(dict):
         if 'url' not in params:
             raise Exception("Need a url")
 
+        tid = md5string(params['url'] + str(params.get('data')) + str(params.get('params')))
         params.setdefault('meta', {})
         params.setdefault('priority', 0)
         params.setdefault('retry', 3)
+        params.setdefault('tid', tid)
 
         if re.match(r'^https?:/{2}\w.+$', params['url']):
             params['url'] = furl(params['url']).url
@@ -121,11 +116,37 @@ class Task(dict):
         return Task(**params)
 
 
+@singleton
+class TaskManager:
+    registered_task = set()
+
+    def __init__(self, lock):
+        self.lock = lock
+
+    def register(self, tid):
+        self.lock.acquire()
+        self.registered_task.add(tid)
+        self.lock.release()
+
+    def unregister(self, tid):
+        self.lock.acquire()
+        self.registered_task.remove(tid)
+        self.lock.release()
+
+    def is_empty(self):
+        self.lock.acquire()
+        is_empty = (len(self.registered_task) == 0)
+        self.lock.release()
+        return is_empty
+
+
 class Downloader(Thread):
     def __init__(self, to_download_q: PriorityQueue,
                  downloader_parser_q: PriorityQueue,
                  result_q: Queue,
-                 name, session=requests.session()):
+                 name: str,
+                 lock,
+                 session=requests.session()):
         super().__init__(name=name)
         self.to_download_q = to_download_q
         self.downloader_parser_q = downloader_parser_q
@@ -135,6 +156,8 @@ class Downloader(Thread):
         self._exit = False
 
         self.log = Log(self.name)
+        self.lock = lock
+        self.task_manager = TaskManager(self.lock)
 
     def exit(self):
         self._exit = True
@@ -144,6 +167,7 @@ class Downloader(Thread):
 
         try:
             task = self.to_download_q.get_nowait()
+            self.task_manager.register(task['tid'])
         except Empty:
             self.log.log_it("Scheduler to Downloader队列为空，{}等待中。".format(self.name), 'INFO')
             with cond:
@@ -178,7 +202,13 @@ class Downloader(Thread):
 
 
 class Parser(Thread):
-    def __init__(self, to_download_q: PriorityQueue, downloader_parser_q: PriorityQueue, result_q, name):
+    def __init__(
+            self,
+            to_download_q: PriorityQueue,
+            downloader_parser_q: PriorityQueue,
+            result_q: Queue,
+            name: str,
+            lock):
         super().__init__(name=name)
         self.downloader_parser_q = downloader_parser_q
         self.to_download_q = to_download_q
@@ -186,6 +216,8 @@ class Parser(Thread):
 
         self._exit = False
         self.log = Log(self.name)
+        self.lock = lock
+        self.task_manager = TaskManager(self.lock)
 
     def exit(self):
         self._exit = True
@@ -220,6 +252,7 @@ class Parser(Thread):
         elif tasks:
             self.log.log_it("获取新任务1个。", 'INFO')
             self.to_download_q.put(tasks)
+        self.task_manager.unregister(task['tid'])
         return data
 
     def run(self):
@@ -228,7 +261,8 @@ class Parser(Thread):
 
 
 class Crawler:
-    def __init__(self, to_download_q,
+    def __init__(self,
+                 to_download_q,
                  downloader_parser_q,
                  result_q,
                  parser_worker_count=config.get('PARSER_WORKER', 1),
@@ -245,34 +279,29 @@ class Crawler:
         self.result_q = result_q
 
         self.session = session
+        self.lock = Lock()
+        self.task_manager = TaskManager(self.lock)
 
     def start(self):
-        print("启动。输入Q结束。")
         for i in range(self.downloader_worker_count):
             _worker = Downloader(self.to_download_q, self.downloader_parser_q, self.result_q, "Downloader {}".format(i),
-                                 self.session)
+                                 self.lock, self.session, )
             self.downloader_worker.append(_worker)
             self.log.log_it("启动 Downloader {}".format(i), 'INFO')
             _worker.start()
 
         for i in range(self.parser_worker_count):
-            _worker = Parser(self.to_download_q, self.downloader_parser_q, self.result_q, "Parser {}".format(i))
+            _worker = Parser(self.to_download_q, self.downloader_parser_q, self.result_q, "Parser {}".format(i),
+                             self.lock)
             self.parser_worker.append(_worker)
             self.log.log_it("启动 Parser {}".format(i), 'INFO')
             _worker.start()
 
-        try:
-            while True:
-                q = input("")
-                if q == 'Q':
-                    # os._exit(0)
-                    break
-        except KeyboardInterrupt:
-            # os._exit(0)
-            pass
-
-        for worker in self.downloader_worker:
-            worker.exit()
-        for worker in self.parser_worker:
-            worker.exit()
-        return
+        while True:
+            time.sleep(1)
+            if self.task_manager.is_empty():
+                for worker in self.downloader_worker:
+                    worker.exit()
+                for worker in self.parser_worker:
+                    worker.exit()
+                return
