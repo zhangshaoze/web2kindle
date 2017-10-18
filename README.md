@@ -65,7 +65,6 @@ python main.py zhihu_collection --f="C:\Users\vincent8280\web2kindle\a.txt"
 运行结果如下（部分）：
 
 ```
-启动。输入Q结束。
 [2017-10-11 21:44:31,579][Crawler] 启动 Downloader 0
 [2017-10-11 21:44:31,580][Crawler] 启动 Parser 0
 [2017-10-11 21:44:31,580][Downloader 0] 请求 https://www.zhihu.com/collection/67258836?page=1
@@ -81,7 +80,6 @@ python main.py zhihu_collection --f="C:\Users\vincent8280\web2kindle\a.txt"
 [2017-10-11 21:44:36,685][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
 [2017-10-11 21:44:36,685][Downloader 0] Downloader to Parser队列不为空。Downloader 0被唤醒。
 [2017-10-11 21:44:36,701][Downloader 0] Scheduler to Downloader队列为空，Downloader 0等待中。
-Q
 
 *************************************************************
  Amazon kindlegen(Windows) V2.9 build 1029-0897292
@@ -105,8 +103,6 @@ Q
 ```
 
 调用KindleGen制作电子书部分为多进程，所以部分显示不正常。
-
-本程序还没实现自动判断下载完成，当很久无请求的之后，说明队列为空，请求已完成。此时手动输入“Q”来开始制作电子书。
 
 # 配置
 
@@ -147,7 +143,7 @@ python main.py 脚本名称 参数
 
 ```
 //批量获取https://www.zhihu.com/collection/191640375第五页到最后一页
-python main.py zhihu_collection --i=191640375 --page=5
+python main.py zhihu_collection --i=191640375 --start=5
 
 //批量获取c:\a.txt文本文件下所有编号所示的收藏夹
 python main.py zhihu_collection --f="c:\a.txt"
@@ -191,7 +187,7 @@ SAVE_PATH : 'C:\Users\web2kinle_save'
 
 ```
 //批量获取https://zhuanlan.zhihu.com/vinca520第三篇到最后一篇
-python main.py zhihu_collection --i=vinca520 --page=3
+python main.py zhihu_collection --i=vinca520 --start=3
 
 //批量获取c:\a.txt文本文件下所有编号所示的专栏
 python main.py zhihu_collection --f="c:\a.txt"
@@ -234,7 +230,7 @@ SAVE_PATH : 'C:\Users\web2kinle_save'
 
 ```
 //批量获取https://www.zhihu.com/people/zhong-wen-sen/answers第三篇到最后一篇
-python main.py zhihu_answers --i=vinca520 --page=3
+python main.py zhihu_answers --i=vinca520 --start=3
 
 //批量获取c:\a.txt文本文件下所有答主的所有答案
 python main.py zhihu_answers --f="c:\a.txt"
