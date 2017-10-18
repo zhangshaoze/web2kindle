@@ -5,6 +5,7 @@
 #         http://wax8280.github.io
 # Created on 2017/10/11 12:30
 import click
+import multiprocessing
 
 from web2kindle.libs.utils import read_file_to_list
 
@@ -69,4 +70,5 @@ def zhihu_answers_main(i, f, page):
 
 
 if __name__ == '__main__':
+    multiprocessing.freeze_support()
     cli()
