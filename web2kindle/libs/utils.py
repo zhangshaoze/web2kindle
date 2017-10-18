@@ -14,9 +14,10 @@ from functools import wraps
 
 from multiprocessing import cpu_count
 
-from jinja2 import Environment, PackageLoader
+from jinja2 import Template
 
 md5string = lambda x: hashlib.md5(x.encode()).hexdigest()
+
 
 def singleton(cls):
     instances = {}
@@ -29,6 +30,7 @@ def singleton(cls):
 
     return getinstance
 
+
 def load_config(path):
     try:
         f = open(path, 'r', encoding='utf-8')
@@ -39,10 +41,16 @@ def load_config(path):
 
 class HTML2Kindle:
     def __init__(self, kindlegen_path):
-        self.template_env = Environment(loader=PackageLoader('web2kindle'))
-        self.content_template = self.template_env.get_template('kindle_content.html')
-        self.opf_template = self.template_env.get_template('kindle.html')
-        self.index_template = self.template_env.get_template('kindle_index.html')
+        # self.template_env = Environment(loader=PackageLoader('web2kindle'))
+        # self.content_template = self.template_env.get_template('kindle_content.html')
+        # self.opf_template = self.template_env.get_template('kindle.html')
+        # self.index_template = self.template_env.get_template('kindle_index.html')
+        # 打包成exe之后会有bug
+
+        self.content_template = Template(read_file('./web2kindle/templates/kindle_content.html'))
+        self.opf_template = Template(read_file('./web2kindle/templates/kindle.html'))
+        self.index_template = Template(read_file('./web2kindle/templates/kindle_index.html'))
+
         self.kindlegen_path = kindlegen_path
 
     def make_opf(self, title, navigation, table_href, path):
@@ -108,6 +116,12 @@ def format_file_name(file_name, a=''):
 
 
 def read_file(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        text = f.read()
+    return str(text)
+
+
+def read_file_to_list(path):
     try:
         with open(path, 'r') as f:
             return [i.strip() for i in list(f.readlines())]

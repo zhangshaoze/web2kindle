@@ -6,7 +6,7 @@
 # Created on 2017/10/11 12:30
 import click
 
-from web2kindle.libs.utils import read_file
+from web2kindle.libs.utils import read_file_to_list
 
 
 @click.group()
@@ -25,7 +25,7 @@ def zhihu_collection_main(i, f, start, end):
     if i:
         web2kindle.script.zhihu_collection.main([i], start, end)
     elif f:
-        collection_list = read_file(f)
+        collection_list = read_file_to_list(f)
         if isinstance(collection_list, list):
             web2kindle.script.zhihu_collection.main(collection_list, start, end)
         else:
@@ -43,7 +43,7 @@ def zhihu_zhuanlan_main(i, f, page):
     if i:
         web2kindle.script.zhihu_zhuanlan.main([i], page)
     elif f:
-        zhuanlan_list = read_file(f)
+        zhuanlan_list = read_file_to_list(f)
         if isinstance(zhuanlan_list, list):
             web2kindle.script.zhihu_zhuanlan.main(zhuanlan_list, page)
         else:
@@ -61,7 +61,7 @@ def zhihu_answers_main(i, f, page):
     if i:
         web2kindle.script.zhihu_answers.main([i], page)
     elif f:
-        people_list = read_file(f)
+        people_list = read_file_to_list(f)
         if isinstance(people_list, list):
             web2kindle.script.zhihu_answers.main(people_list, page)
         else:
