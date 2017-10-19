@@ -187,10 +187,10 @@ SAVE_PATH : 'C:\Users\web2kinle_save'
 
 ```
 //批量获取https://zhuanlan.zhihu.com/vinca520第三篇到最后一篇
-python main.py zhihu_collection --i=vinca520 --start=3
+python main.py zhihu_zhuanlan --i=vinca520 --start=3
 
 //批量获取c:\a.txt文本文件下所有编号所示的专栏
-python main.py zhihu_collection --f="c:\a.txt"
+python main.py zhihu_zhuanlan --f="c:\a.txt"
 ```
 
 `c:\a.txt`文本文件。里面放着要下载的专栏的编号。分别用换行符隔开。
