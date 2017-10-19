@@ -71,14 +71,17 @@ def get_main_js(task):
 
     new_headers = deepcopy(zhihu_answers_config.get('DEFAULT_HEADERS'))
     new_headers.update({"Referer": task['save']['base_url']})
-    new_task = deepcopy(task)
-    new_task['meta']['headers'] = new_headers
-    new_task.update({
+    meta = deepcopy(task['meta'])
+    meta['headers'] = new_headers
+
+    new_task = Task.make_task({
         'url': js_url,
         'method': 'GET',
         'parser': get_auth,
         'priority': 1,
         'retried': 0,
+        'meta': meta,
+        'save': task['save']
     })
     return None, new_task
 
@@ -95,17 +98,18 @@ def get_auth(task):
         log.log_it("无法获得auth", 'INFO')
         raise RetryTask
 
-    new_task = deepcopy(task)
     new_headers = deepcopy(zhihu_answers_config.get('DEFAULT_HEADERS'))
     new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth.group(1))})
-    new_task['meta']['headers'] = new_headers
-    new_task['save'].update({'headers': new_headers})
-    new_task.update({
+    meta = deepcopy(task['meta'])
+    meta['headers'] = new_headers
+
+    new_task = Task.make_task({
         'url': api_url.format(task['save']['name'], task['save']['cursor']),
         'method': 'GET',
         'parser': get_answer,
         'priority': 2,
-        'retried': 0,
+        'meta': meta,
+        'save': task['save']
     })
     return None, new_task
 

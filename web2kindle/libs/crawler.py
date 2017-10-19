@@ -130,7 +130,10 @@ class TaskManager:
 
     def unregister(self, tid):
         self.lock.acquire()
-        self.registered_task.remove(tid)
+        try:
+            self.registered_task.remove(tid)
+        except KeyError:
+            pass
         self.lock.release()
 
     def is_empty(self):
@@ -248,9 +251,11 @@ class Parser(Thread):
         if tasks and isinstance(tasks, list):
             self.log.log_it("获取新任务{}个。".format(len(tasks)), 'INFO')
             for new_task in tasks:
+                self.task_manager.register(new_task['tid'])
                 self.to_download_q.put(new_task)
         elif tasks:
             self.log.log_it("获取新任务1个。", 'INFO')
+            self.task_manager.register(tasks['tid'])
             self.to_download_q.put(tasks)
         self.task_manager.unregister(task['tid'])
         return data
