@@ -38,15 +38,15 @@ def zhihu_collection_main(i, f, start, end):
 @click.option('--f')
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
-def zhihu_zhuanlan_main(i, f, page):
+def zhihu_zhuanlan_main(i, f, start, end):
     import web2kindle.script.zhihu_zhuanlan
 
     if i:
-        web2kindle.script.zhihu_zhuanlan.main([i], page)
+        web2kindle.script.zhihu_zhuanlan.main([i], start, end)
     elif f:
         zhuanlan_list = read_file_to_list(f)
         if isinstance(zhuanlan_list, list):
-            web2kindle.script.zhihu_zhuanlan.main(zhuanlan_list, page)
+            web2kindle.script.zhihu_zhuanlan.main(zhuanlan_list, start, end)
         else:
             click.echo(zhuanlan_list)
 
@@ -56,15 +56,15 @@ def zhihu_zhuanlan_main(i, f, page):
 @click.option('--f')
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
-def zhihu_answers_main(i, f, page):
+def zhihu_answers_main(i, f, start, end):
     import web2kindle.script.zhihu_answers
 
     if i:
-        web2kindle.script.zhihu_answers.main([i], page)
+        web2kindle.script.zhihu_answers.main([i], start, end)
     elif f:
         people_list = read_file_to_list(f)
         if isinstance(people_list, list):
-            web2kindle.script.zhihu_answers.main(people_list, page)
+            web2kindle.script.zhihu_answers.main(people_list, start, end)
         else:
             click.echo(people_list)
 

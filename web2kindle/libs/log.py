@@ -7,7 +7,6 @@ import os
 from logging.handlers import WatchedFileHandler
 from functools import partial
 from web2kindle.libs.utils import load_config
-print(os.getcwd())
 
 config=load_config('./web2kindle/config/config.yml')
 
