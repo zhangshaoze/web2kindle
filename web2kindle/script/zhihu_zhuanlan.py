@@ -12,9 +12,9 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, md5string, load_config
 from web2kindle.libs.log import Log
-from pyquery import PyQuery
+from bs4 import BeautifulSoup
 
 zhihu_zhuanlan_config = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
 config = load_config('./web2kindle/config/config.yml')
@@ -22,7 +22,7 @@ html2kindle = HTML2Kindle(config['KINDLEGEN_PATH'])
 log = Log("zhihu_zhuanlan")
 
 
-def main(zhuanlan_name_list, start, end):
+def main(zhuanlan_name_list, start, end, kw):
     iq = PriorityQueue()
     oq = PriorityQueue()
     result_q = Queue()
@@ -40,9 +40,10 @@ def main(zhuanlan_name_list, start, end):
             'save': {'cursor': 0,
                      'save_path': os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], zhuanlan_name),
                      'start': start,
-                     'end': end},
+                     'end': end,
+                     'kw': kw,
+                     'name': zhuanlan_name},
             # 专栏ID
-            'name': zhuanlan_name,
             'retry': 3,
         })
 
@@ -56,9 +57,23 @@ def main(zhuanlan_name_list, start, end):
 
 def parser_downloader_img(task):
     if task['response']:
-        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
-              task['response'].content, mode='wb')
+        if 'www.zhihu.com/equation' not in task['url']:
+            write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+                  task['response'].content, mode='wb')
+        else:
+            write(os.path.join(task['save']['save_path'], 'static'), md5string(task['url']) + '.svg',
+                  task['response'].content,
+                  mode='wb')
     return None, None
+
+
+def convert_link(x):
+    if 'www.zhihu.com/equation' not in x.group(1):
+        return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
+    # svg等式的保存
+    else:
+        a = 'src="./static/{}.svg"'.format(md5string(x.group(1)))
+        return a
 
 
 def parser_content(task):
@@ -84,15 +99,26 @@ def parser_content(task):
         created_time = post['publishedTime']
         voteup_count = post['likeCount']
 
-        pq = PyQuery(content)
-        # 删除无用的img标签
-        pq('img[src^="data"]').remove()
-        content = pq.html()
+        bs = BeautifulSoup(content, 'lxml')
+
+        for tab in bs.select('img[src^="data"]'):
+            # 删除无用的img标签
+            tab.decompose()
+
+        for tab in bs.select('img'):
+            if 'equation' not in tab['src']:
+                tab.wrap(bs.new_tag('div', style='text-align:center;'))
+                tab['style'] = "display: inline-block;"
+
+        content = str(bs)
+        # bs4会自动加html和body 标签
+        content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
 
         download_img_list.extend(re.findall('src="(http.*?)"', content))
 
         # 更换为本地相对路径
-        content = re.sub('src="(.*?)"', lambda x: 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:]), content)
+        content = re.sub('src="(.*?)"', convert_link, content)
+
         # 超链接的转换
         content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
         content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
@@ -102,17 +128,18 @@ def parser_content(task):
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
 
-        img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
-        img_header.update({'Referer': response.url})
-        for img_url in download_img_list:
-            new_tasks.append(Task.make_task({
-                'url': img_url,
-                'method': 'GET',
-                'meta': {'headers': img_header, 'verify': False},
-                'parser': parser_downloader_img,
-                'save': task['save'],
-                'priority': 10,
-            }))
+        if task['save']['kw'].get('img', True):
+            img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
+            img_header.update({'Referer': response.url})
+            for img_url in download_img_list:
+                new_tasks.append(Task.make_task({
+                    'url': img_url,
+                    'method': 'GET',
+                    'meta': {'headers': img_header, 'verify': False},
+                    'parser': parser_downloader_img,
+                    'save': task['save'],
+                    'priority': 10,
+                }))
     except RetryTask:
         html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
         raise RetryTask
@@ -156,12 +183,11 @@ def parser_list(task):
             'parser': parser_content,
             'priority': 5,
             'save': task['save'],
-            'name': task['name'],
             'title': item['title'],
         })
         new_tasks.append(new_task)
     if opf:
-        zhuanlan_name = task['name'] + '（第{}页）'.format(str(task['save']['cursor']))
+        zhuanlan_name = task['save']['name'] + '（第{}页）'.format(str(task['save']['cursor']))
         opf_path = os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '.opf'))
 
         html2kindle.make_table(opf,
@@ -172,4 +198,4 @@ def parser_list(task):
 
 
 if __name__ == '__main__':
-    main(['limiao'], 0, 30)
+    main(['PatrickZhang'], 0, 20, {'img': False})

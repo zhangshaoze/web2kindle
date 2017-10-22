@@ -20,15 +20,19 @@ def cli():
 @click.option('--f')
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
-def zhihu_collection_main(i, f, start, end):
+@click.option('--img/--no-img', default=True)
+def zhihu_collection_main(i, f, start, end, img):
     import web2kindle.script.zhihu_collection
-
+    kw = {}
+    kw.update({
+        'img': img,
+    })
     if i:
-        web2kindle.script.zhihu_collection.main([i], start, end)
+        web2kindle.script.zhihu_collection.main([i], start, end, kw)
     elif f:
         collection_list = read_file_to_list(f)
         if isinstance(collection_list, list):
-            web2kindle.script.zhihu_collection.main(collection_list, start, end)
+            web2kindle.script.zhihu_collection.main(collection_list, start, end, kw)
         else:
             click.echo(collection_list)
 
@@ -38,15 +42,20 @@ def zhihu_collection_main(i, f, start, end):
 @click.option('--f')
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
-def zhihu_zhuanlan_main(i, f, start, end):
+@click.option('--img/--no-img', default=True)
+def zhihu_zhuanlan_main(i, f, start, end, img):
     import web2kindle.script.zhihu_zhuanlan
+    kw = {}
+    kw.update({
+        'img': img,
+    })
 
     if i:
-        web2kindle.script.zhihu_zhuanlan.main([i], start, end)
+        web2kindle.script.zhihu_zhuanlan.main([i], start, end, kw)
     elif f:
         zhuanlan_list = read_file_to_list(f)
         if isinstance(zhuanlan_list, list):
-            web2kindle.script.zhihu_zhuanlan.main(zhuanlan_list, start, end)
+            web2kindle.script.zhihu_zhuanlan.main(zhuanlan_list, start, end, kw)
         else:
             click.echo(zhuanlan_list)
 
@@ -56,15 +65,20 @@ def zhihu_zhuanlan_main(i, f, start, end):
 @click.option('--f')
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
-def zhihu_answers_main(i, f, start, end):
+@click.option('--img/--no-img', default=True)
+def zhihu_answers_main(i, f, start, end, img):
     import web2kindle.script.zhihu_answers
+    kw = {}
+    kw.update({
+        'img': img,
+    })
 
     if i:
-        web2kindle.script.zhihu_answers.main([i], start, end)
+        web2kindle.script.zhihu_answers.main([i], start, end, kw)
     elif f:
         people_list = read_file_to_list(f)
         if isinstance(people_list, list):
-            web2kindle.script.zhihu_answers.main(people_list, start, end)
+            web2kindle.script.zhihu_answers.main(people_list, start, end, kw)
         else:
             click.echo(people_list)
 
