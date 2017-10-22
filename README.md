@@ -108,7 +108,7 @@ python main.py zhihu_collection --f="C:\Users\vincent8280\web2kindle\a.txt"
 
 配置文件在`config`目录下。配置文件其实是一个`yml`文件，该文件以`yml`为后缀名。对于每个单独的脚本都有不同的配置文件，另有一个`config.yml`通用配置文件。
 
-## config.py
+## config.yml
 
 ```
 # 注意冒号旁的两个空格
@@ -165,6 +165,7 @@ python main.py zhihu_collection --f="c:\a.txt"
 
 - --start：开始页码数，如要从第五页开始`--start=5`
 - --end：结束页码数，如要第十页结束`--end=10`
+- --no-img：不下载图片
 
 #### 配置
 
@@ -208,6 +209,7 @@ alenxwn
 
 - --start：开始篇数，如要从第五篇开始`--start=5`
 - --end：结束篇数，如要第十篇结束`--end=10`
+- --no-img：不下载图片
 
 #### 配置
 
@@ -252,6 +254,7 @@ chen-zi-long-50-58
 
 - --start：开始篇数，如要从第五篇开始`--start=5`
 - --end：结束篇数，如要第十篇结束`--end=10`
+- --no-img：不下载图片
 
 #### 配置
 

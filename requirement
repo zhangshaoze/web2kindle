@@ -1,6 +1,7 @@
 requests
 jinja2
-pyquery
+beautifulsoup4
+lxml
 click
 furl
 pyyaml
