@@ -40,7 +40,7 @@ def load_config(path):
 
 
 class HTML2Kindle:
-    def __init__(self, kindlegen_path):
+    def __init__(self, kindlegen_path='./kindlegen.exe'):
         # self.template_env = Environment(loader=PackageLoader('web2kindle'))
         # self.content_template = self.template_env.get_template('kindle_content.html')
         # self.opf_template = self.template_env.get_template('kindle.html')
@@ -112,7 +112,7 @@ def codes_write(folder_path, file_path, content, mode='wb'):
 
 
 def format_file_name(file_name, a=''):
-    return re.sub(r'[ \\/:*?"<>→|]', '', file_name) + a
+    return re.sub(r'[ \\/:*?"<>→|+]', '', file_name) + a
 
 
 def read_file(path):
