@@ -78,6 +78,12 @@ def convert_link(x):
 
 def parser_content(task):
     title = task['title']
+
+    # 文件名太长无法制作mobi
+    if len(title) > 55:
+        _ = 55 - len(title) - 3
+        title = title[:_] + '...'
+
     download_img_list = []
     new_tasks = []
 

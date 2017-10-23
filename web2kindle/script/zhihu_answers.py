@@ -137,6 +137,12 @@ def get_answer(task):
 
     for answer in json_data['data']:
         title = answer['question']['title']
+
+        # 文件名太长无法制作mobi
+        if len(title) > 55:
+            _ = 55 - len(title) - 3
+            title = title[:_] + '...'
+
         author_name = answer['author']['name']
         author_headline = answer['author']['headline']
         content = answer['content']
