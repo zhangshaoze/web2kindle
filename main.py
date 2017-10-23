@@ -83,6 +83,19 @@ def zhihu_answers_main(i, f, start, end, img):
             click.echo(people_list)
 
 
+@cli.command('make_mobi')
+@click.option('--multi/--single', default=True)
+@click.option('--path')
+def make_mobi(multi, path):
+    if not path:
+        import os
+        path = os.getcwd()
+
+    from web2kindle.libs.utils import HTML2Kindle
+    html2kindle = HTML2Kindle()
+    html2kindle.make_book_multi(path) if multi else html2kindle.make_book(path)
+
+
 if __name__ == '__main__':
     multiprocessing.freeze_support()
     cli()
