@@ -142,7 +142,7 @@ def parser_collection(task):
         # bs.make_links_absolute(response.url)
         next_page = bs.select('.zm-invite-pager span a')
         if next_page and next_page[-1].string == '下一页':
-            next_page = re.sub('\?page=\d+', '', task['url']) + next_page[0]['href']
+            next_page = re.sub('\?page=\d+', '', task['url']) + next_page[-1]['href']
             new_tasks.append(Task.make_task({
                 'url': next_page,
                 'method': 'GET',
@@ -169,4 +169,4 @@ def parser_collection(task):
 
 
 if __name__ == '__main__':
-    main(['19903734'], 1, 2, {'img': True})
+    main(['19903734'], 1, 10, {'img': False})
