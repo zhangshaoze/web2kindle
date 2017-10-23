@@ -9,6 +9,7 @@ import os
 import re
 import yaml
 import hashlib
+import platform
 from functools import partial
 from functools import wraps
 
@@ -39,8 +40,20 @@ def load_config(path):
     return yaml.load(f)
 
 
+def get_system():
+    return platform.system()
+
+
+if get_system() == 'Linux':
+    KINDLE_GEN_PATH = './web2kindle/bin/kindlegen_linux'
+elif get_system() == 'Windows':
+    KINDLE_GEN_PATH = r'.\web2kindle\bin\kindlegen.exe'
+else:
+    KINDLE_GEN_PATH = './web2kindle/bin/kindlegen_mac'
+
+
 class HTML2Kindle:
-    def __init__(self, kindlegen_path='./kindlegen.exe'):
+    def __init__(self, kindlegen_path=KINDLE_GEN_PATH):
         # self.template_env = Environment(loader=PackageLoader('web2kindle'))
         # self.content_template = self.template_env.get_template('kindle_content.html')
         # self.opf_template = self.template_env.get_template('kindle.html')
@@ -51,7 +64,7 @@ class HTML2Kindle:
         self.opf_template = Template(read_file('./web2kindle/templates/kindle.html'))
         self.index_template = Template(read_file('./web2kindle/templates/kindle_index.html'))
 
-        self.kindlegen_path = kindlegen_path
+        self.kindlegen_path = kindlegen_path if kindlegen_path is not None else KINDLE_GEN_PATH
 
     def make_opf(self, title, navigation, table_href, path):
         rendered_content = self.opf_template.render(title=title, navigation=navigation, table_href=table_href)
