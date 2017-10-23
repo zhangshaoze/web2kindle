@@ -7,6 +7,7 @@
 import os
 import re
 import time
+import random
 from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
@@ -94,9 +95,10 @@ def parser_collection(task):
             author_name = i.select('.answer-head a.author-link')[0].string
         else:
             # 防止重名
-            author_name = '匿名{}'.format(int(time.time()))
+            author_name = '匿名{}'.format(int(time.time() * 10000) + random.randint(0, 999999))
 
-        title = i.select('.zm-item-title a')[0].string + '（作者：{}）'.format(author_name) if i.select('.zm-item-title a') else ''
+        title = i.select('.zm-item-title a')[0].string + '（作者：{}）'.format(author_name) if i.select(
+            '.zm-item-title a') else ''
         content = i.select('.content')[0].string if i.select('.content') else ''
         voteup_count = i.select('a.zm-item-vote-count')[0].string if i.select('a.zm-item-vote-count') else ''
         created_time = i.select('p.visible-expanded a')[0].string if i.select('p.visible-expanded a') else ''
