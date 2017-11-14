@@ -164,6 +164,8 @@ def get_answer(task):
         content = str(bs)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
+        # 公式地址转换
+        content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
         download_img_list.extend(re.findall('src="(http.*?)"', content))
 

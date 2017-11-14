@@ -95,6 +95,7 @@ class Task(dict):
     @staticmethod
     def make_task(params):
         if 'parser' not in params:
+            # FIXME:Can't raise Exception in there
             raise Exception("Need a parser")
 
         if 'method' not in params:
@@ -108,6 +109,9 @@ class Task(dict):
         params.setdefault('priority', 0)
         params.setdefault('retry', 3)
         params.setdefault('tid', tid)
+
+        if not params['url'].startswith('http'):
+            params['url'] = 'http://' + params['url']
 
         if re.match(r'^https?:/{2}\w.+$', params['url']):
             # FIXME
