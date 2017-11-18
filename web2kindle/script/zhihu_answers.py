@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 
 zhihu_answers_config = load_config('./web2kindle/config/zhihu_answers_config.yml')
 config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config['KINDLEGEN_PATH'])
+html2kindle = HTML2Kindle(config.get(['KINDLEGEN_PATH']))
 log = Log("zhihu_answers")
 api_url = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
 
@@ -38,7 +38,7 @@ def main(zhihu_answers_list, start, end, kw):
             'parser': get_main_js,
             'priority': 0,
             'save': {
-                'cursor': 0,
+                'cursor': start,
                 'start': start,
                 'end': end,
                 'kw': kw,
@@ -156,6 +156,7 @@ def get_answer(task):
             # 删除无用的img标签
             tab.decompose()
 
+        # 居中图片
         for tab in bs.select('img'):
             if 'equation' not in tab['src']:
                 tab.wrap(bs.new_tag('div', style='text-align:center;'))

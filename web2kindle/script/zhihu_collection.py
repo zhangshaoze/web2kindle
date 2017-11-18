@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 
 zhihu_collection_config = load_config('./web2kindle/config/zhihu_collection_config.yml')
 config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config['KINDLEGEN_PATH'])
+html2kindle = HTML2Kindle(config.get(['KINDLEGEN_PATH']))
 log = Log('zhihu_collection')
 
 
@@ -116,6 +116,7 @@ def parser_collection(task):
             # 删除无用的img标签
             tab.decompose()
 
+        # 居中图片
         for tab in bs2.select('img'):
             if 'equation' not in tab['src']:
                 tab.wrap(bs2.new_tag('div', style='text-align:center;'))

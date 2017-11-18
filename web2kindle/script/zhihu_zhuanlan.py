@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 
 zhihu_zhuanlan_config = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
 config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config['KINDLEGEN_PATH'])
+html2kindle = HTML2Kindle(config.get(['KINDLEGEN_PATH']))
 log = Log("zhihu_zhuanlan")
 
 
@@ -37,7 +37,7 @@ def main(zhuanlan_name_list, start, end, kw):
             'meta': {'headers': new_header, 'verify': False},
             'parser': parser_list,
             'priority': 0,
-            'save': {'cursor': 0,
+            'save': {'cursor': start,
                      'save_path': os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], zhuanlan_name),
                      'start': start,
                      'end': end,
@@ -111,6 +111,7 @@ def parser_content(task):
             # 删除无用的img标签
             tab.decompose()
 
+        # 居中图片
         for tab in bs.select('img'):
             if 'equation' not in tab['src']:
                 tab.wrap(bs.new_tag('div', style='text-align:center;'))
