@@ -5,7 +5,6 @@
 #         http://wax8280.github.io
 # Created on 2017/10/10 9:53
 import re
-import os
 import traceback
 import time
 from queue import PriorityQueue, Empty, Queue
@@ -13,7 +12,6 @@ from queue import PriorityQueue, Empty, Queue
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from threading import Thread, Condition, Lock
-from furl import furl
 
 from web2kindle.libs.log import Log
 from web2kindle.libs.utils import load_config, singleton, md5string
@@ -187,10 +185,9 @@ class Downloader(Thread):
 
         self.log.log_it("请求 {}".format(task['url']))
         try:
-            if re.match(r'^https?:/{2}\w.+$', task['url']):
-                response = self.session.request(task['method'], task['url'], **task.get('meta', {}))
+            response = self.session.request(task['method'], task['url'], **task.get('meta', {}))
         except Exception as e:
-            traceback.print_exc(file=open(os.path.join(config.get('LOG_PATH'), 'downlaoder_traceback'), 'a'))
+            # traceback.print_exc(file=open(os.path.join(config.get('LOG_PATH'), 'downlaoder_traceback'), 'a'))
             traceback.print_exc()
             self.log.log_it("网络请求错误。错误信息:{} URL:{} Response:{}".format(str(e), task['url'], response), 'INFO')
             if task.get('retry', None):
@@ -251,7 +248,8 @@ class Parser(Thread):
                     self.to_download_q.put(task)
             return
         except Exception as e:
-            traceback.print_exc(file=open(os.path.join(config.get('LOG_PATH'), 'parser_traceback'), 'a'))
+            # FIXME FileNotFoundError
+            # traceback.print_exc(file=open(os.path.join(config.get('LOG_PATH'), 'parser_traceback'), 'a'))
             traceback.print_exc()
             self.log.log_it("解析错误。错误信息：{}。Task：{}".format(str(e), task), 'WARN')
 
