@@ -34,6 +34,18 @@
 * 新增单独制作电子书命令行
 * 修复重复文件名导致不能制作mobi的Bug
 
+### 0.1.2.0
+
+* 添加果壳网脚本
+
+### 0.1.2.1
+* 自动获取KINDLEGEN_PATH，配置文件里面不用写了
+* 添加WRITE_LOG参数，可以自己选择写日志与否
+* 添加fix_mobi脚本
+* 修复了文件名太长而导致无法制作mobi的bug
+
+### 0.1.2.2
+* 添加"-dont_append_source"参数，大大减小mobi的体积
 
 # 使用方法
 
@@ -128,9 +140,10 @@ DOWNLOADER_WORKER : 1
 PARSER_WORKER : 1
 ```
 
-- KINDLEGEN_PATH：KindleGen.exe程序所在路径
-- LOG_PATH：日志文件
+- KINDLEGEN_PATH(可选)：KindleGen.exe程序所在路径
+- LOG_PATH(可选)：日志文件的路径
 - LOG_LEVEL：日志等级
+- WRITE_LOG(可选) : 是否写日志文件，默认否
 - DOWNLOADER_WORKER：启动Downloader的数量，建议为1~3。
 - PARSER_WORKER：启动Parser的数量，建议为1。
 
@@ -150,6 +163,21 @@ python main.py 脚本名称 参数
 制作电子书
 ```
 python main.py make_mobi --path="F:\source"
+```
+
+#### 参数
+
+- --path：目标路径
+
+可选参数：
+
+- --single：使用单进程（默认多进程）
+
+### fix_mobi
+
+修复（重新扫描目录，制作目录中没有制作的电子书）
+```
+python main.py fix_mobi --path="F:\source"
 ```
 
 #### 参数
@@ -295,6 +323,37 @@ SAVE_PATH : 'C:\Users\web2kinle_save'
 
 - DEFAULT_HEADERS：请求头，默认即可。
 - SVAE_PATH：保存路径名。会自动在此目录以`collection_num`生产一个子目录，元数据即保存在此子目录中。
+
+## 果壳
+### guoke_scientific
+批量获取果壳网科学人下的所有文章。
+
+```
+python main.py guoke_scientific"
+```
+#### 参数
+
+可选参数：
+
+- --start：开始篇数，如要从第二十篇开始`--start=20`
+- --end：结束篇数，如要第四十篇结束`--end=40`
+- --no-img：不下载图片
+
+#### 配置
+
+在`config`目录下新建一个`guoke_scientific_config.yml`文件。
+
+```
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
+
+SAVE_PATH : 'C:\Users\web2kinle_save'
+```
+
+- DEFAULT_HEADERS：请求头，默认即可。
+- SVAE_PATH：保存路径名。
+
 
 # KindleGen
 
