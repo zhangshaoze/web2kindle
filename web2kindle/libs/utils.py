@@ -91,21 +91,34 @@ class HTML2Kindle:
     def _make_book(kindlegen_path, path):
         os.system("{} {}".format(kindlegen_path, path))
 
-    def make_book_multi(self, rootdir):
+    def make_book_multi(self, rootdir, overwrite=True):
         from multiprocessing import Pool
         pool = Pool(cpu_count())
-        path_l = []
-        for i in os.listdir(rootdir):
-            if not os.path.isdir(os.path.join(rootdir, os.path.join(rootdir, i))):
-                if i.lower().endswith('opf'):
-                    path_l.append(os.path.join(rootdir, i))
-        pool.map(partial(self._make_book, self.kindlegen_path), path_l)
+        opf_list = self.get_opf(rootdir, overwrite)
+        pool.map(partial(self._make_book, self.kindlegen_path), opf_list)
 
-    def make_book(self, rootdir):
+    def make_book(self, rootdir, overwrite=True):
+        opf_list = self.get_opf(rootdir, overwrite)
+        for i in opf_list:
+            os.system("{} {}".format(self.kindlegen_path, os.path.join(rootdir, i)))
+
+    def get_opf(self, rootdir, overwrite):
+        result = []
+        mobi = []
+        for i in os.listdir(rootdir):
+            if not os.path.isdir(os.path.join(rootdir, i)):
+                if i.lower().endswith('mobi'):
+                    mobi.append(i)
+
         for i in os.listdir(rootdir):
             if not os.path.isdir(os.path.join(rootdir, i)):
                 if i.lower().endswith('opf'):
-                    os.system("{} {}".format(self.kindlegen_path, os.path.join(rootdir, i)))
+                    if overwrite:
+                        result.append(os.path.join(rootdir, i))
+                    else:
+                        if i.replace('opf', 'mobi') not in mobi:
+                            result.append(os.path.join(rootdir, i))
+        return result
 
 
 def write(folder_path, file_path, content, mode='wb'):
