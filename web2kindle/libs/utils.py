@@ -89,7 +89,7 @@ class HTML2Kindle:
 
     @staticmethod
     def _make_book(kindlegen_path, path):
-        os.system("{} {}".format(kindlegen_path, path))
+        os.system("{} -dont_append_source {}".format(kindlegen_path, path))
 
     def make_book_multi(self, rootdir, overwrite=True):
         from multiprocessing import Pool
@@ -100,7 +100,7 @@ class HTML2Kindle:
     def make_book(self, rootdir, overwrite=True):
         opf_list = self.get_opf(rootdir, overwrite)
         for i in opf_list:
-            os.system("{} {}".format(self.kindlegen_path, os.path.join(rootdir, i)))
+            os.system("{} -dont_append_source {}".format(self.kindlegen_path, os.path.join(rootdir, i)))
 
     def get_opf(self, rootdir, overwrite):
         result = []
