@@ -82,6 +82,17 @@ def zhihu_answers_main(i, f, start, end, img):
         else:
             click.echo(people_list)
 
+@cli.command('guoke_scientific')
+@click.option('--start', default=0)
+@click.option('--end', default=float('inf'))
+@click.option('--img/--no-img', default=True)
+def guoke_scientific(start, end, img):
+    import web2kindle.script.guoke_scientific
+    kw = {}
+    kw.update({
+        'img': img,
+    })
+    web2kindle.script.guoke_scientific.main(start, end, kw)
 
 @cli.command('make_mobi')
 @click.option('--multi/--single', default=True)
@@ -94,6 +105,19 @@ def make_mobi(multi, path):
     from web2kindle.libs.utils import HTML2Kindle
     html2kindle = HTML2Kindle()
     html2kindle.make_book_multi(path) if multi else html2kindle.make_book(path)
+
+
+@cli.command('fix_mobi')
+@click.option('--multi/--single', default=True)
+@click.option('--path')
+def fix_mobi(multi, path):
+    if not path:
+        import os
+        path = os.getcwd()
+
+    from web2kindle.libs.utils import HTML2Kindle
+    html2kindle = HTML2Kindle()
+    html2kindle.make_book_multi(path, False) if multi else html2kindle.make_book(path, False)
 
 
 if __name__ == '__main__':
