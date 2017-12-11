@@ -121,45 +121,45 @@ def parser_content(task):
             # 删除无用的img标签
             tab.decompose()
 
-            # 居中图片
-            for tab in bs.select('img'):
-                if 'equation' not in tab['src']:
-                    tab.wrap(bs.new_tag('div', style='text-align:center;'))
-                    tab['style'] = "display: inline-block;"
+        # 居中图片
+        for tab in bs.select('img'):
+            if 'equation' not in tab['src']:
+                tab.wrap(bs.new_tag('div', style='text-align:center;'))
+                tab['style'] = "display: inline-block;"
 
-            content = str(bs)
-            # bs4会自动加html和body 标签
-            content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
+        content = str(bs)
+        # bs4会自动加html和body 标签
+        content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
 
-            # 公式地址转换（傻逼知乎又换地址了）
-            # content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
+        # 公式地址转换（傻逼知乎又换地址了）
+        # content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
-            download_img_list.extend(re.findall('src="(http.*?)"', content))
+        download_img_list.extend(re.findall('src="(http.*?)"', content))
 
-            # 更换为本地相对路径
-            content = re.sub('src="(.*?)"', convert_link, content)
+        # 更换为本地相对路径
+        content = re.sub('src="(.*?)"', convert_link, content)
 
-            # 超链接的转换
-            content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
-            content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
+        # 超链接的转换
+        content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
+        content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
 
-            html2kindle.make_content(title, content,
-                                     os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
-                                     {'author_name': author_name, 'voteup_count': voteup_count,
-                                      'created_time': created_time})
+        html2kindle.make_content(title, content,
+                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
+                                 {'author_name': author_name, 'voteup_count': voteup_count,
+                                  'created_time': created_time})
 
-            if task['save']['kw'].get('img', True):
-                img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
-                img_header.update({'Referer': response.url})
-                for img_url in download_img_list:
-                    new_tasks.append(Task.make_task({
-                        'url': img_url,
-                        'method': 'GET',
-                        'meta': {'headers': img_header, 'verify': False},
-                        'parser': parser_downloader_img,
-                        'save': task['save'],
-                        'priority': 10,
-                    }))
+        if task['save']['kw'].get('img', True):
+            img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
+            img_header.update({'Referer': response.url})
+            for img_url in download_img_list:
+                new_tasks.append(Task.make_task({
+                    'url': img_url,
+                    'method': 'GET',
+                    'meta': {'headers': img_header, 'verify': False},
+                    'parser': parser_downloader_img,
+                    'save': task['save'],
+                    'priority': 10,
+                }))
     except RetryTask:
         html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
         raise RetryTask
