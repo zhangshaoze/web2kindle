@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 
 zhihu_zhuanlan_config = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
 config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config.get(['KINDLEGEN_PATH']))
+html2kindle = HTML2Kindle(config.get('KINDLEGEN_PATH'))
 log = Log("zhihu_zhuanlan")
 
 
