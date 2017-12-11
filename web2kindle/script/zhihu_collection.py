@@ -6,7 +6,6 @@
 # Created on 2017/10/9 19:07
 import os
 import re
-import time
 import random
 from copy import deepcopy
 from queue import Queue, PriorityQueue
@@ -95,7 +94,7 @@ def parser_collection(task):
             author_name = i.select('.answer-head a.author-link')[0].string
         else:
             # 防止重名
-            author_name = '匿名{}'.format(int(time.time()) + random.randint(0, 9999999999999999999999))
+            author_name = '匿名{}'.format(random.randint(0, 999999))
 
         title = i.select('.zm-item-title a')[0].string if i.select('.zm-item-title a') else ''
 
@@ -125,8 +124,9 @@ def parser_collection(task):
         content = str(bs2)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
-        # 公式地址转换
-        content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
+
+        # 公式地址转换（傻逼知乎又换地址了）
+        # content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
         # 需要下载的静态资源
         download_img_list.extend(re.findall('src="(http.*?)"', content))
@@ -181,4 +181,4 @@ def parser_collection(task):
 
 
 if __name__ == '__main__':
-    main(['19903734'], 1, 10, {'img': False})
+    main(['205859764'], 1, 10, {'img': True})

@@ -94,13 +94,17 @@ def get_auth(task):
 
     text = response.text
 
-    auth = re.search('w=t.CLIENT_ALIAS="(.*?)"', text)
+    auth = None
+    for _ in re.findall('h="(.*?)"', text):
+        if len(_) == 32:
+            auth = _
+
     if not auth:
         log.log_it("无法获得auth", 'INFO')
         raise RetryTask
 
     new_headers = deepcopy(zhihu_answers_config.get('DEFAULT_HEADERS'))
-    new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth.group(1))})
+    new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth)})
     meta = deepcopy(task['meta'])
     meta['headers'] = new_headers
 
@@ -165,7 +169,7 @@ def get_answer(task):
         content = str(bs)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
-        # 公式地址转换
+        # 公式地址转换（傻逼知乎又换地址了）
         content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
         download_img_list.extend(re.findall('src="(http.*?)"', content))
@@ -229,4 +233,4 @@ def convert_link(x):
 
 
 if __name__ == '__main__':
-    main(['chen-zi-long-50-58'], 1, 20, {'img': True})
+    main(['zhong-wen-sen'], 1, 20, {'img': True})

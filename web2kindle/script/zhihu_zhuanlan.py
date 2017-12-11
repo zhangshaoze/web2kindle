@@ -92,69 +92,82 @@ def parser_content(task):
         if not response:
             raise RetryTask
 
-        text = response.text
-        if not re.search('<textarea id="preloadedState" hidden>(.*?)</textarea>', text):
-            log.log_it('不能读取内容数据？（是否被ban？） {}'.format(response.url), 'INFO')
-            raise RetryTask
+        author_name = '未知'
+        voteup_count = '未知'
+        created_time = '未知'
 
-        raw_json = re.search('<textarea id="preloadedState" hidden>(.*?)</textarea>', text).group(1)
-        post = json.loads(raw_json)['database']['Post']
-        post = post[list(post.keys())[0]]
-        content = post['content']
-        author_name = post['author']
-        created_time = post['publishedTime']
-        voteup_count = post['likeCount']
+        bs = BeautifulSoup(response.text, 'lxml')
+
+        content_tab = bs.select('.PostIndex-content')
+        if content_tab:
+            content = str(content_tab[0])
+        else:
+            raise Exception("不能找到文章的内容")
+
+        author_name_tab = bs.select('.PostIndex-authorName')
+        if author_name_tab:
+            author_name = author_name_tab[0].string
+
+        voteup_count_reg = re.search('likesCount&quot;:(\d+),', response.text)
+        if voteup_count_reg:
+            voteup_count = voteup_count_reg.group(1)
+
+        created_time_tab = bs.select('.PostIndex-header .HoverTitle')
+        if len(created_time_tab) == 2:
+            created_time = str(created_time_tab[1]['data-hover-title'])
 
         bs = BeautifulSoup(content, 'lxml')
-
         for tab in bs.select('img[src^="data"]'):
             # 删除无用的img标签
             tab.decompose()
 
-        # 居中图片
-        for tab in bs.select('img'):
-            if 'equation' not in tab['src']:
-                tab.wrap(bs.new_tag('div', style='text-align:center;'))
-                tab['style'] = "display: inline-block;"
+            # 居中图片
+            for tab in bs.select('img'):
+                if 'equation' not in tab['src']:
+                    tab.wrap(bs.new_tag('div', style='text-align:center;'))
+                    tab['style'] = "display: inline-block;"
 
-        content = str(bs)
-        # bs4会自动加html和body 标签
-        content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
-        # 公式地址转换
-        content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
+            content = str(bs)
+            # bs4会自动加html和body 标签
+            content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
 
-        download_img_list.extend(re.findall('src="(http.*?)"', content))
+            # 公式地址转换（傻逼知乎又换地址了）
+            # content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
-        # 更换为本地相对路径
-        content = re.sub('src="(.*?)"', convert_link, content)
+            download_img_list.extend(re.findall('src="(http.*?)"', content))
 
-        # 超链接的转换
-        content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
-        content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
+            # 更换为本地相对路径
+            content = re.sub('src="(.*?)"', convert_link, content)
 
-        html2kindle.make_content(title, content,
-                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
-                                 {'author_name': author_name, 'voteup_count': voteup_count,
-                                  'created_time': created_time})
+            # 超链接的转换
+            content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
+            content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
 
-        if task['save']['kw'].get('img', True):
-            img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
-            img_header.update({'Referer': response.url})
-            for img_url in download_img_list:
-                new_tasks.append(Task.make_task({
-                    'url': img_url,
-                    'method': 'GET',
-                    'meta': {'headers': img_header, 'verify': False},
-                    'parser': parser_downloader_img,
-                    'save': task['save'],
-                    'priority': 10,
-                }))
+            html2kindle.make_content(title, content,
+                                     os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
+                                     {'author_name': author_name, 'voteup_count': voteup_count,
+                                      'created_time': created_time})
+
+            if task['save']['kw'].get('img', True):
+                img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
+                img_header.update({'Referer': response.url})
+                for img_url in download_img_list:
+                    new_tasks.append(Task.make_task({
+                        'url': img_url,
+                        'method': 'GET',
+                        'meta': {'headers': img_header, 'verify': False},
+                        'parser': parser_downloader_img,
+                        'save': task['save'],
+                        'priority': 10,
+                    }))
     except RetryTask:
         html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
         raise RetryTask
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
-        raise Exception
+        raise e
 
     return None, new_tasks
 
@@ -207,4 +220,4 @@ def parser_list(task):
 
 
 if __name__ == '__main__':
-    main(['PatrickZhang'], 0, 20, {'img': False})
+    main(['PatrickZhang'], 0, 20, {'img': True})
