@@ -50,6 +50,11 @@
 ### 0.1.2.3
 * 知乎前端更新
 
+### 0.1.3.0
+
+* 添加好奇心日报脚本
+* 为减少体积。默认不下载gif。如需要下载加上`--gif`参数。
+
 # 使用方法
 
 ## 安装Python
@@ -231,6 +236,7 @@ python main.py zhihu_collection --f="c:\a.txt"
 - --start：开始页码数，如要从第五页开始`--start=5`
 - --end：结束页码数，如要第十页结束`--end=10`
 - --no-img：不下载图片
+- --gif：下载gif
 
 #### 配置
 
@@ -270,6 +276,7 @@ alenxwn
 - --start：开始篇数，如要从第五篇开始`--start=5`
 - --end：结束篇数，如要第十篇结束`--end=10`
 - --no-img：不下载图片
+- --gif：下载gif
 
 #### 配置
 
@@ -310,6 +317,7 @@ chen-zi-long-50-58
 - --start：开始篇数，如要从第五篇开始`--start=5`
 - --end：结束篇数，如要第十篇结束`--end=10`
 - --no-img：不下载图片
+- --gif：下载gif
 
 #### 配置
 
@@ -326,15 +334,16 @@ SAVE_PATH : 'C:\Users\web2kinle_save'
 批量获取果壳网科学人下的所有文章。
 
 ```
-python main.py guoke_scientific"
+python main.py guoke_scientific
 ```
 #### 参数
 
 可选参数：
 
-- --start：开始篇数，如要从第二十篇开始`--start=20`
+- --start：开始篇数，如要从第二十篇开始`--start=20`。
 - --end：结束篇数，如要第四十篇结束`--end=40`
 - --no-img：不下载图片
+- --gif：下载gif
 
 #### 配置
 
@@ -346,6 +355,45 @@ SAVE_PATH : 'C:\Users\web2kinle_save'
 
 - SVAE_PATH：保存路径名。
 
+
+## 好奇心日报
+
+### qdaily
+
+批量获取好奇心下的所有文章。
+
+```
+python main.py qdaily
+```
+
+#### 参数
+
+可选参数：
+
+- --start：开始日期，如`--start=2017-12-12`。默认今天。
+- --end：结束篇数，如`--start=2017-12-12`。默认无限。
+- --no-img：不下载图片。
+- --gif：下载gif
+- --type：制定类型，默认为`home`
+  - home：首页
+  - business：商业
+  - intelligent：智能
+  - design：设计
+  - fashion：时尚
+  - entertainment：娱乐
+  - city：城市
+  - game：游戏
+  - long：长文章
+
+#### 配置
+
+在`config`目录下新建一个`qdaily_config.yml`文件。
+
+```
+SAVE_PATH : 'C:\Users\web2kinle_save'
+```
+
+- SVAE_PATH：保存路径名。
 
 # KindleGen
 
