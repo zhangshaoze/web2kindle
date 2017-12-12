@@ -107,7 +107,7 @@ def guoke_scientific(start, end, img, gif):
 @cli.command('qdaily')
 @click.option('--start', default='default')
 @click.option('--type', default='home')
-@click.option('--end', default='inf')
+@click.option('--end', default='default')
 @click.option('--img/--no-img', default=True)
 @click.option('--gif/--no-gif', default=False)
 def qdaily(start, end, img, type, gif):
@@ -121,8 +121,8 @@ def qdaily(start, end, img, type, gif):
     })
     if start == 'default':
         start = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d')
-    if end == 'inf':
-        end = '2025-01-01'
+    if end == 'default':
+        end = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d')
 
     web2kindle.script.qdaily.main(start, end, kw)
 
