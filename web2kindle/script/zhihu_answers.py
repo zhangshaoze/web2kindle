@@ -4,7 +4,6 @@
 # Author: Vincent<vincent8280@outlook.com>
 #         http://wax8280.github.io
 # Created on 2017/10/11 23:38
-
 import os
 import re
 import datetime
@@ -17,14 +16,29 @@ from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_con
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
-zhihu_answers_config = load_config('./web2kindle/config/zhihu_answers_config.yml')
-config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config.get('KINDLEGEN_PATH'))
-log = Log("zhihu_answers")
-api_url = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author.badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
+ZHIHU_ANSWER_CONFIG = load_config('./web2kindle/config/zhihu_answers_config.yml')
+MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
+LOG = Log("zhihu_answers")
+HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
+API_URL = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2" \
+          "Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2" \
+          "Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_" \
+          "permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship." \
+          "is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author." \
+          "badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
+
+if 'DEFAULT_HEADERS' not in ZHIHU_ANSWER_CONFIG:
+    if 'DEFAULT_HEADERS' in MAIN_CONFIG:
+        ZHIHU_ANSWER_CONFIG.update(MAIN_CONFIG.get('DEFAULT_HEADERS'))
+    else:
+        LOG.log_it("在配置文件中没有发现'DEFAULT_HEADERS'项，请确认主配置文件中或脚本配置文件中存在该项。", 'ERROR')
 
 
 def main(zhihu_answers_list, start, end, kw):
+    """
+    爬虫流程
+    请求答主主页->获取main.app.js文件->在main.app.js文件里获取auth->带auth的header请求知乎api
+    """
     iq = PriorityQueue()
     oq = PriorityQueue()
     result_q = Queue()
@@ -34,7 +48,7 @@ def main(zhihu_answers_list, start, end, kw):
         task = Task.make_task({
             'url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             'method': 'GET',
-            'meta': {'headers': zhihu_answers_config.get('DEFAULT_HEADERS'), 'verify': False},
+            'meta': {'headers': ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'), 'verify': False},
             'parser': get_main_js,
             'priority': 0,
             'save': {
@@ -42,9 +56,8 @@ def main(zhihu_answers_list, start, end, kw):
                 'start': start,
                 'end': end,
                 'kw': kw,
-                # 专栏ID`
                 'name': zhihu_answers,
-                'save_path': os.path.join(zhihu_answers_config['SAVE_PATH'], zhihu_answers),
+                'save_path': os.path.join(ZHIHU_ANSWER_CONFIG['SAVE_PATH'], zhihu_answers),
                 'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             },
             'retry': 3,
@@ -52,8 +65,9 @@ def main(zhihu_answers_list, start, end, kw):
         iq.put(task)
 
     crawler.start()
+
     for zhihu_answers in zhihu_answers_list:
-        html2kindle.make_book_multi(os.path.join(zhihu_answers_config['SAVE_PATH'], str(zhihu_answers)))
+        HTML2KINDLE.make_book_multi(os.path.join(ZHIHU_ANSWER_CONFIG['SAVE_PATH'], str(zhihu_answers)))
     os._exit(0)
 
 
@@ -66,11 +80,11 @@ def get_main_js(task):
 
     js_id = re.search('src="https://static.zhihu.com/heifetz/main.app.(.*?)"', text)
     if not js_id:
-        log.log_it("无法获得main_js的地址", 'INFO')
+        LOG.log_it("无法获得main_js的地址（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
         raise RetryTask
     js_url = 'https://static.zhihu.com/heifetz/main.app.{}'.format(js_id.group(1))
 
-    new_headers = deepcopy(zhihu_answers_config.get('DEFAULT_HEADERS'))
+    new_headers = deepcopy(ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'))
     new_headers.update({"Referer": task['save']['base_url']})
     meta = deepcopy(task['meta'])
     meta['headers'] = new_headers
@@ -80,7 +94,6 @@ def get_main_js(task):
         'method': 'GET',
         'parser': get_auth,
         'priority': 1,
-        'retried': 0,
         'meta': meta,
         'save': task['save']
     })
@@ -100,16 +113,16 @@ def get_auth(task):
             auth = _
 
     if not auth:
-        log.log_it("无法获得auth", 'INFO')
+        LOG.log_it("无法获得auth（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
         raise RetryTask
 
-    new_headers = deepcopy(zhihu_answers_config.get('DEFAULT_HEADERS'))
+    new_headers = deepcopy(ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'))
     new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth)})
     meta = deepcopy(task['meta'])
     meta['headers'] = new_headers
 
     new_task = Task.make_task({
-        'url': api_url.format(task['save']['name'], task['save']['cursor']),
+        'url': API_URL.format(task['save']['name'], task['save']['cursor']),
         'method': 'GET',
         'parser': get_answer,
         'priority': 2,
@@ -131,7 +144,7 @@ def get_answer(task):
         new_task = deepcopy(task)
         new_task['save']['cursor'] += 20
         new_task.update({
-            'url': api_url.format(new_task['save']['name'], new_task['save']['cursor']),
+            'url': API_URL.format(new_task['save']['name'], new_task['save']['cursor']),
             'method': 'GET',
             'parser': get_answer,
             'priority': 2,
@@ -156,8 +169,8 @@ def get_answer(task):
 
         bs = BeautifulSoup(content, 'lxml')
 
+        # 删除无用的img标签
         for tab in bs.select('img[src^="data"]'):
-            # 删除无用的img标签
             tab.decompose()
 
         # 居中图片
@@ -169,8 +182,9 @@ def get_answer(task):
         content = str(bs)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
+
         # 公式地址转换（傻逼知乎又换地址了）
-        content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
+        # content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
         download_img_list.extend(re.findall('src="(http.*?)"', content))
 
@@ -183,7 +197,7 @@ def get_answer(task):
 
         opf.append({'href': format_file_name(title, '.html')})
 
-        html2kindle.make_content(title, content,
+        HTML2KINDLE.make_content(title, content,
                                  os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
@@ -192,11 +206,11 @@ def get_answer(task):
         opf_name = task['save']['name'] + '（第{}~{}篇）'.format(task['save']['cursor'], task['save']['cursor'] + 20)
         opf_path = os.path.join(task['save']['save_path'], format_file_name(opf_name, '.opf'))
 
-        html2kindle.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
-        html2kindle.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
+        HTML2KINDLE.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
+        HTML2KINDLE.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
 
     if task['save']['kw'].get('img', True):
-        img_header = deepcopy(zhihu_answers_config.get('DEFAULT_HEADERS'))
+        img_header = deepcopy(ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'))
         img_header.update({'Referer': task['save']['base_url']})
         for img_url in download_img_list:
             new_tasks_list.append(Task.make_task({
