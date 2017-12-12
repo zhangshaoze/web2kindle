@@ -104,7 +104,7 @@ def parser_list(task):
             new_tasks.append(next_page_task)
     else:
         LOG.log_it('不能读取专栏列表。（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）', 'WARN')
-        return None, None
+        raise RetryTask
 
     for item in data:
         opf.append({'href': format_file_name(item['title'], '.html')})
@@ -173,6 +173,12 @@ def parser_content(task):
                 tab.wrap(bs.new_tag('div', style='text-align:center;'))
                 tab['style'] = "display: inline-block;"
 
+            # 删除gif
+            if task['save']['kw']['gif'] is False:
+                if 'gif' in tab['src']:
+                    tab.decompose()
+                    continue
+
         content = str(bs)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
@@ -219,4 +225,4 @@ def parser_content(task):
 
 
 if __name__ == '__main__':
-    main(['PatrickZhang'], 0, 20, {'img': True})
+    main(['PatrickZhang'], 0, 20, {'img': True, 'gif': False})

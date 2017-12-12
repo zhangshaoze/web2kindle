@@ -21,11 +21,13 @@ def cli():
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
-def zhihu_collection_main(i, f, start, end, img):
+@click.option('--gif/--no-gif', default=False)
+def zhihu_collection_main(i, f, start, end, img, gif):
     import web2kindle.script.zhihu_collection
     kw = {}
     kw.update({
         'img': img,
+        'gif': gif,
     })
     if i:
         web2kindle.script.zhihu_collection.main([i], start, end, kw)
@@ -43,11 +45,13 @@ def zhihu_collection_main(i, f, start, end, img):
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
-def zhihu_zhuanlan_main(i, f, start, end, img):
+@click.option('--gif/--no-gif', default=False)
+def zhihu_zhuanlan_main(i, f, start, end, img, gif):
     import web2kindle.script.zhihu_zhuanlan
     kw = {}
     kw.update({
         'img': img,
+        'gif': gif,
     })
 
     if i:
@@ -66,11 +70,13 @@ def zhihu_zhuanlan_main(i, f, start, end, img):
 @click.option('--start', default=1)
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
-def zhihu_answers_main(i, f, start, end, img):
+@click.option('--gif/--no-gif', default=False)
+def zhihu_answers_main(i, f, start, end, img, gif):
     import web2kindle.script.zhihu_answers
     kw = {}
     kw.update({
         'img': img,
+        'gif': gif,
     })
 
     if i:
@@ -82,17 +88,44 @@ def zhihu_answers_main(i, f, start, end, img):
         else:
             click.echo(people_list)
 
+
 @cli.command('guoke_scientific')
 @click.option('--start', default=0)
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
-def guoke_scientific(start, end, img):
+@click.option('--gif/--no-gif', default=False)
+def guoke_scientific(start, end, img, gif):
     import web2kindle.script.guoke_scientific
     kw = {}
     kw.update({
         'img': img,
+        'gif': gif,
     })
     web2kindle.script.guoke_scientific.main(start, end, kw)
+
+
+@cli.command('qdaily')
+@click.option('--start', default='default')
+@click.option('--type', default='home')
+@click.option('--end', default='inf')
+@click.option('--img/--no-img', default=True)
+@click.option('--gif/--no-gif', default=False)
+def qdaily(start, end, img, type, gif):
+    import web2kindle.script.qdaily, datetime, time
+    kw = {}
+    kw.update({
+        'img': img,
+        'gif': gif,
+        'type': type
+
+    })
+    if start == 'default':
+        start = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d')
+    if end == 'inf':
+        end = '2025-01-01'
+
+    web2kindle.script.qdaily.main(start, end, kw)
+
 
 @cli.command('make_mobi')
 @click.option('--multi/--single', default=True)

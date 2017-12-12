@@ -135,6 +135,12 @@ def parser_collection(task):
                 tab.wrap(bs2.new_tag('div', style='text-align:center;'))
                 tab['style'] = "display: inline-block;"
 
+            # 删除gif
+            if task['save']['kw']['gif'] is False:
+                if 'gif' in tab['src']:
+                    tab.decompose()
+                    continue
+
         content = str(bs2)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
@@ -195,4 +201,4 @@ def parser_collection(task):
 
 
 if __name__ == '__main__':
-    main(['205859764'], 1, 10, {'img': True})
+    main(['205859764'], 1, 10, {'img': True, 'gif': False})

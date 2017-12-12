@@ -162,6 +162,13 @@ def parser_content(task):
     for tab in bs2.select('img'):
         tab.wrap(bs2.new_tag('div', style='text-align:center;'))
         tab['style'] = "display: inline-block;"
+
+        # 删除gif
+        if task['save']['kw']['gif'] is False:
+            if 'gif' in tab['src']:
+                tab.decompose()
+                continue
+
     content = str(bs2)
 
     article_path = format_file_name(title, '.html')
@@ -198,4 +205,4 @@ def convert_link(x):
 
 
 if __name__ == '__main__':
-    main(0, 20, {'img': False})
+    main(0, 20, {'img': False, 'gif': False})

@@ -183,6 +183,12 @@ def get_answer(task):
                 tab.wrap(bs.new_tag('div', style='text-align:center;'))
                 tab['style'] = "display: inline-block;"
 
+            # 删除gif
+            if task['save']['kw']['gif'] is False:
+                if 'gif' in tab['src']:
+                    tab.decompose()
+                    continue
+
         content = str(bs)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
@@ -251,4 +257,4 @@ def convert_link(x):
 
 
 if __name__ == '__main__':
-    main(['zhong-wen-sen'], 1, 20, {'img': True})
+    main(['zhong-wen-sen'], 1, 20, {'img': True, 'gif': False})
