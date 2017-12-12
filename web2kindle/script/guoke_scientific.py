@@ -11,15 +11,19 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
-guoke_scientific_config = load_config('./web2kindle/config/guoke_scientific_config.yml')
-config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config.get('KINDLEGEN_PATH'))
-log = Log("guoke_scientific")
-api_url = "http://www.guokr.com/apis/minisite/article.json?retrieve_type=by_subject&limit=20&offset={}&_=1508757235776"
+SCRIPT_CONFIG = load_config('./web2kindle/config/guoke_scientific_config.yml')
+MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
+HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
+LOG = Log("guoke_scientific")
+API_URL = "http://www.guokr.com/apis/minisite/article.json?retrieve_type=by_subject&limit=20&offset={}&_=1508757235776"
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
+check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 
 
 def main(start, end, kw):
@@ -27,15 +31,11 @@ def main(start, end, kw):
     oq = PriorityQueue()
     result_q = Queue()
     crawler = Crawler(iq, oq, result_q)
-    path = guoke_scientific_config.get('SAVE_PATH', config.get('SAVE'))
-    default_headers = guoke_scientific_config.get('DEFAULT_HEADERS', config.get('DEFAULT_HEADERS'))
+    default_headers = deepcopy(DEFAULT_HEADERS)
     default_headers.update({'Referer': 'http://www.guokr.com/scientific/'})
 
-    if not path:
-        raise Exception("没有指定存储路径（请填写配置文件）")
-
     task = Task.make_task({
-        'url': api_url.format(start),
+        'url': API_URL.format(start),
         'method': 'GET',
         'meta': {'headers': default_headers, 'verify': False},
         'parser': parser_list,
@@ -45,14 +45,14 @@ def main(start, end, kw):
             'start': start,
             'end': end,
             'kw': kw,
-            'save_path': path,
+            'save_path': SCRIPT_CONFIG['SAVE_PATH'],
         },
         'retry': 3,
     })
     iq.put(task)
 
     crawler.start()
-    html2kindle.make_book_multi(path)
+    HTML2KINDLE.make_book_multi(SCRIPT_CONFIG['SAVE_PATH'])
     os._exit(0)
 
 
@@ -64,44 +64,55 @@ def parser_list(task):
     new_tasks = []
     opf = []
 
-    data = response.json()
-    for each_result in data['result']:
-        title = each_result['title']
-        url = each_result['url']
-        date_group = re.search('(.*?)T(.*?)\+', each_result['date_created'])
-        date = date_group.group(1) + ' ' + date_group.group(2)
+    try:
+        data = response.json()
+    except Exception as e:
+        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问，可能是网站代码升级，请通知开发者。）\nERRINFO:{}'
+                   .format(str(e)), 'WARN')
+        raise RetryTask
 
-        meta = deepcopy(task['meta'])
-        save = deepcopy(task['save'])
-        save.update({
-            'title': title,
-            'date': date
-        })
-        new_task = Task.make_task({
-            'url': url,
-            'method': 'GET',
-            'parser': parser_content,
-            'priority': 1,
-            'meta': meta,
-            'save': save
-        })
-        new_tasks.append(new_task)
+    try:
+        for each_result in data['result']:
+            title = each_result['title']
+            url = each_result['url']
+            date_group = re.search('(.*?)T(.*?)\+', each_result['date_created'])
+            date = date_group.group(1) + ' ' + date_group.group(2)
 
-        opf.append({'href': format_file_name(title, '.html')})
+            meta = deepcopy(task['meta'])
+            save = deepcopy(task['save'])
+            save.update({
+                'title': title,
+                'date': date
+            })
+            new_task = Task.make_task({
+                'url': url,
+                'method': 'GET',
+                'parser': parser_content,
+                'priority': 1,
+                'meta': meta,
+                'save': save
+            })
+            new_tasks.append(new_task)
+
+            opf.append({'href': format_file_name(title, '.html')})
+    except KeyError:
+        LOG.log_it('JSON KEY出错（如一直出现，而且浏览器能正常访问，可能是网站代码升级，请通知开发者。）', 'WARN')
+        raise RetryTask
 
     if opf:
         opf_name = '果壳网_科学人（第{}~{}篇）'.format(task['save']['cursor'], task['save']['cursor'] + 20)
         opf_path = os.path.join(task['save']['save_path'], format_file_name(opf_name, '.opf'))
 
-        html2kindle.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
-        html2kindle.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
+        HTML2KINDLE.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
+        HTML2KINDLE.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
 
+    # 获取下一页
     meta = deepcopy(task['meta'])
     save = deepcopy(task['save'])
     save['cursor'] += 20
     if save['cursor'] < save['end'] and not len(data['result']) < 20:
         new_task = Task.make_task({
-            'url': api_url.format(save['cursor']),
+            'url': API_URL.format(save['cursor']),
             'method': 'GET',
             'meta': meta,
             'parser': parser_list,
@@ -123,8 +134,8 @@ def parser_content(task):
     download_img_list = []
     opf = []
     soup = BeautifulSoup(response.text, 'lxml')
-    content_select = soup.select('.document')
 
+    content_select = soup.select('.document')
     # 移除每页后面无用的信息
     if content_select:
         for to_del in soup.select('.copyright'):
@@ -155,13 +166,13 @@ def parser_content(task):
 
     article_path = format_file_name(title, '.html')
     opf.append({'id': article_path, 'href': article_path})
-    html2kindle.make_content(title, content,
+    HTML2KINDLE.make_content(title, content,
                              os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
                              {'author_name': '', 'voteup_count': '',
                               'created_time': task['save']['date']})
 
     if task['save']['kw'].get('img', True):
-        img_header = deepcopy(guoke_scientific_config.get('DEFAULT_HEADERS'))
+        img_header = deepcopy(DEFAULT_HEADERS)
         img_header.update({'Referer': response.url})
         for img_url in download_img_list:
             new_tasks.append(Task.make_task({

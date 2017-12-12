@@ -4,7 +4,6 @@
 # Author: Vincent<vincent8280@outlook.com>
 #         http://wax8280.github.io
 # Created on 2017/10/10 14:05
-import json
 import os
 import re
 from copy import deepcopy
@@ -12,14 +11,19 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, md5string, load_config
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, md5string, load_config, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
-zhihu_zhuanlan_config = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
-config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config.get('KINDLEGEN_PATH'))
-log = Log("zhihu_zhuanlan")
+SCRIPT_CONFIG = load_config('./web2kindle/config/zhihu_zhuanlan_config.yml')
+MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
+HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
+LOG = Log("zhihu_zhuanlan")
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
+
+check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 
 
 def main(zhuanlan_name_list, start, end, kw):
@@ -29,7 +33,7 @@ def main(zhuanlan_name_list, start, end, kw):
     crawler = Crawler(iq, oq, result_q)
 
     for zhuanlan_name in zhuanlan_name_list:
-        new_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
+        new_header = deepcopy(DEFAULT_HEADERS)
         new_header.update({'Referer': 'https://zhuanlan.zhihu.com/{}'.format(zhuanlan_name)})
         task = Task.make_task({
             'url': 'https://zhuanlan.zhihu.com/api/columns/{}/posts?limit=20&offset={}'.format(zhuanlan_name, start),
@@ -38,12 +42,11 @@ def main(zhuanlan_name_list, start, end, kw):
             'parser': parser_list,
             'priority': 0,
             'save': {'cursor': start,
-                     'save_path': os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], zhuanlan_name),
+                     'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'], zhuanlan_name),
                      'start': start,
                      'end': end,
                      'kw': kw,
                      'name': zhuanlan_name},
-            # 专栏ID
             'retry': 3,
         })
 
@@ -51,7 +54,7 @@ def main(zhuanlan_name_list, start, end, kw):
 
     crawler.start()
     for zhuanlan_name in zhuanlan_name_list:
-        html2kindle.make_book_multi(os.path.join(zhihu_zhuanlan_config['SAVE_PATH'], str(zhuanlan_name)))
+        HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(zhuanlan_name)))
     os._exit(0)
 
 
@@ -76,6 +79,56 @@ def convert_link(x):
         return a
 
 
+def parser_list(task):
+    response = task['response']
+    new_tasks = []
+    opf = []
+
+    if not response:
+        raise RetryTask
+
+    try:
+        data = response.json()
+        data.reverse()
+    except Exception as e:
+        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）\nERRINFO:{}'
+                   .format(str(e)), 'WARN')
+        raise RetryTask
+
+    if len(data) != 0:
+        if task['save']['cursor'] < task['save']['end'] - 20:
+            next_page_task = deepcopy(task)
+            next_page_task.update(
+                {'url': re.sub('offset=\d+', 'offset={}'.format(task['save']['cursor'] + 20), next_page_task['url'])})
+            next_page_task['save'].update({'cursor': next_page_task['save']['cursor'] + 20})
+            new_tasks.append(next_page_task)
+    else:
+        LOG.log_it('不能读取专栏列表。（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）', 'WARN')
+        return None, None
+
+    for item in data:
+        opf.append({'href': format_file_name(item['title'], '.html')})
+        new_task = Task.make_task({
+            'url': 'https://zhuanlan.zhihu.com' + item['url'],
+            'method': 'GET',
+            'meta': task['meta'],
+            'parser': parser_content,
+            'priority': 5,
+            'save': task['save'],
+            'title': item['title'],
+        })
+        new_tasks.append(new_task)
+    if opf:
+        zhuanlan_name = task['save']['name'] + '（第{}页）'.format(str(task['save']['cursor']))
+        opf_path = os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '.opf'))
+
+        HTML2KINDLE.make_table(opf,
+                               os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '_table.html')))
+        HTML2KINDLE.make_opf(zhuanlan_name, opf, format_file_name(zhuanlan_name, '_table.html'), opf_path)
+
+    return None, new_tasks
+
+
 def parser_content(task):
     title = task['title']
 
@@ -92,29 +145,22 @@ def parser_content(task):
         if not response:
             raise RetryTask
 
-        author_name = '未知'
-        voteup_count = '未知'
-        created_time = '未知'
-
         bs = BeautifulSoup(response.text, 'lxml')
 
         content_tab = bs.select('.PostIndex-content')
         if content_tab:
             content = str(content_tab[0])
         else:
-            raise Exception("不能找到文章的内容")
+            LOG.log_it("不能找到文章的内容。（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
+            raise RetryTask
 
-        author_name_tab = bs.select('.PostIndex-authorName')
-        if author_name_tab:
-            author_name = author_name_tab[0].string
+        author_name = bs.select('.PostIndex-authorName')[0].string if bs.select('.PostIndex-authorName') else ''
 
-        voteup_count_reg = re.search('likesCount&quot;:(\d+),', response.text)
-        if voteup_count_reg:
-            voteup_count = voteup_count_reg.group(1)
+        voteup_count = re.search('likesCount&quot;:(\d+),', response.text).group(1) if re.search(
+            'likesCount&quot;:(\d+),', response.text) else ''
 
-        created_time_tab = bs.select('.PostIndex-header .HoverTitle')
-        if len(created_time_tab) == 2:
-            created_time = str(created_time_tab[1]['data-hover-title'])
+        created_time = str(bs.select('.PostIndex-header .HoverTitle')[1]['data-hover-title']) if len(
+            bs.select('.PostIndex-header .HoverTitle')) == 2 else ''
 
         bs = BeautifulSoup(content, 'lxml')
         for tab in bs.select('img[src^="data"]'):
@@ -143,13 +189,13 @@ def parser_content(task):
         content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
         content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
 
-        html2kindle.make_content(title, content,
+        HTML2KINDLE.make_content(title, content,
                                  os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
 
         if task['save']['kw'].get('img', True):
-            img_header = deepcopy(zhihu_zhuanlan_config.get('DEFAULT_HEADERS'))
+            img_header = deepcopy(DEFAULT_HEADERS)
             img_header.update({'Referer': response.url})
             for img_url in download_img_list:
                 new_tasks.append(Task.make_task({
@@ -161,60 +207,13 @@ def parser_content(task):
                     'priority': 10,
                 }))
     except RetryTask:
-        html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
+        HTML2KINDLE.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
         raise RetryTask
     except Exception as e:
         import traceback
         traceback.print_exc()
-        html2kindle.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
+        HTML2KINDLE.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
         raise e
-
-    return None, new_tasks
-
-
-def parser_list(task):
-    response = task['response']
-    new_tasks = []
-    opf = []
-
-    if not response:
-        raise RetryTask
-
-    data = json.loads(response.text)
-    data.reverse()
-
-    if len(data) != 0:
-        if task['save']['cursor'] < task['save']['end'] - 20:
-            # TODO：if ban?
-            log.log_it('不能读取列表数据？（是否已经完结？） {}'.format(response.url), 'INFO')
-            next_page_task = deepcopy(task)
-            next_page_task.update(
-                {'url': re.sub('offset=\d+', 'offset={}'.format(task['save']['cursor'] + 20), next_page_task['url'])})
-            next_page_task['save'].update({'cursor': next_page_task['save']['cursor'] + 20})
-            new_tasks.append(next_page_task)
-    else:
-        return None, None
-
-    for item in data:
-        # item['title']为文章的标题
-        opf.append({'href': format_file_name(item['title'], '.html')})
-        new_task = Task.make_task({
-            'url': 'https://zhuanlan.zhihu.com' + item['url'],
-            'method': 'GET',
-            'meta': task['meta'],
-            'parser': parser_content,
-            'priority': 5,
-            'save': task['save'],
-            'title': item['title'],
-        })
-        new_tasks.append(new_task)
-    if opf:
-        zhuanlan_name = task['save']['name'] + '（第{}页）'.format(str(task['save']['cursor']))
-        opf_path = os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '.opf'))
-
-        html2kindle.make_table(opf,
-                               os.path.join(task['save']['save_path'], format_file_name(zhuanlan_name, '_table.html')))
-        html2kindle.make_opf(zhuanlan_name, opf, format_file_name(zhuanlan_name, '_table.html'), opf_path)
 
     return None, new_tasks
 

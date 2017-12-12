@@ -155,3 +155,12 @@ def read_file_to_list(path):
         return str(e)
     except Exception as e:
         return str(e)
+
+
+def check_config(main_config, script_config, config_name, logger):
+    if config_name not in script_config:
+        if config_name in main_config:
+            script_config.update(main_config.get('DEFAULT_HEADERS'))
+        else:
+            logger.log_it("在配置文件中没有发现'DEFAULT_HEADERS'项，请确认主配置文件中或脚本配置文件中存在该项。", 'ERROR')
+            os._exit(0)

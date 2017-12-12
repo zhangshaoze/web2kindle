@@ -1,11 +1,10 @@
 # 关于Web2Kindle
 
-`Web2Kindle`是一个批量获取某些网页并将其转换为适合Kindle观看的电子书的程序。
+`Web2kindle`项目提供一系列脚本，将知乎、果壳等网站的内容批量获取并解析打包成`mobi`格式供Kindle阅读。
 
 # TODO
 * 知乎登录功能
 * 分页合页
-* 果壳网
 
 
 # 更新日志
@@ -66,6 +65,14 @@ pip install -r requirement
 配置文件在`config`目录下。配置文件其实是一个`yml`文件。
 
 参考[配置](./配置)与[脚本](脚本)两章配置好配置文件。
+
+## 放置Kindlegen程序
+
+进入`web2kindle/bin`文件夹。将下载好的`Kindlegen`程序放入该文件夹内。按如下规则重命名。
+
+* Linux:kindlegen_linux
+* Mac:kindlegen_mac
+* Windows:kindlegen.exe
 
 ## 使用
 
@@ -145,8 +152,9 @@ PARSER_WORKER : 1
 - LOG_PATH(可选)：日志文件的路径
 - LOG_LEVEL：日志等级
 - WRITE_LOG(可选) : 是否写日志文件，默认否
-- DOWNLOADER_WORKER：启动Downloader的数量，建议为1~3。
-- PARSER_WORKER：启动Parser的数量，建议为1。
+- DOWNLOADER_WORKER(可选)：启动Downloader的数量，建议为1~3。
+- PARSER_WORKER(可选)：启动Parser的数量，建议为1。
+- SAVE_PATH(可选)：全局保存路径。优先使用各个脚本独立的`SAVE_PATH`。
 
 # 脚本
 
@@ -226,14 +234,9 @@ python main.py zhihu_collection --f="c:\a.txt"
 在`config`目录下新建一个`zhihu_collection_config.yml`文件。
 
 ```
-DEFAULT_HEADERS : {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
-}
-
 SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
-- DEFAULT_HEADERS：请求头，默认即可。
 - SVAE_PATH：保存路径名。会自动在此目录以`collection_num`生产一个子目录，元数据即保存在此子目录中。
 
 ### zhihu_zhuanlan
@@ -270,14 +273,9 @@ alenxwn
 在`config`目录下新建一个`zhihu_zhuanlan_config.yml`文件。
 
 ```
-DEFAULT_HEADERS : {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
-}
-
 SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
-- DEFAULT_HEADERS：请求头，默认即可。
 - SVAE_PATH：保存路径名。会自动在此目录以`collection_num`生产一个子目录，元数据即保存在此子目录中。
 
 ### zhihu_answers
@@ -315,14 +313,9 @@ chen-zi-long-50-58
 在`config`目录下新建一个`zhihu_answers_config.yml`文件。
 
 ```
-DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
-}
-
 SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
-- DEFAULT_HEADERS：请求头，默认即可。
 - SVAE_PATH：保存路径名。会自动在此目录以`collection_num`生产一个子目录，元数据即保存在此子目录中。
 
 ## 果壳
@@ -345,14 +338,9 @@ python main.py guoke_scientific"
 在`config`目录下新建一个`guoke_scientific_config.yml`文件。
 
 ```
-DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
-}
-
 SAVE_PATH : 'C:\Users\web2kinle_save'
 ```
 
-- DEFAULT_HEADERS：请求头，默认即可。
 - SVAE_PATH：保存路径名。
 
 

@@ -12,14 +12,19 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, md5string, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
-zhihu_collection_config = load_config('./web2kindle/config/zhihu_collection_config.yml')
-config = load_config('./web2kindle/config/config.yml')
-html2kindle = HTML2Kindle(config.get('KINDLEGEN_PATH'))
-log = Log('zhihu_collection')
+SCRIPT_CONFIG = load_config('./web2kindle/config/zhihu_collection_config.yml')
+MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
+HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
+LOG = Log('zhihu_collection')
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
+
+check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 
 
 def main(collection_num_list, start, end, kw):
@@ -32,19 +37,19 @@ def main(collection_num_list, start, end, kw):
         task = Task.make_task({
             'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, start),
             'method': 'GET',
-            'meta': {'headers': zhihu_collection_config.get('DEFAULT_HEADERS'), 'verify': False},
+            'meta': {'headers': DEFAULT_HEADERS, 'verify': False},
             'parser': parser_collection,
             'priority': 0,
             'retry': 3,
             'save': {'start': start,
                      'end': end,
                      'kw': kw,
-                     'save_path': os.path.join(zhihu_collection_config['SAVE_PATH'], str(collection_num))},
+                     'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num))},
         })
         iq.put(task)
     crawler.start()
     for collection_num in collection_num_list:
-        html2kindle.make_book_multi(os.path.join(zhihu_collection_config['SAVE_PATH'], str(collection_num)))
+        HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num)))
     os._exit(0)
 
 
@@ -86,8 +91,17 @@ def parser_collection(task):
     else:
         now_page_num = 1
 
-    collection_name = bs.select('.zm-item-title')[0].string.strip() + ' 第{}页'.format(now_page_num)
-    log.log_it("获取收藏夹[{}]".format(collection_name), 'INFO')
+    try:
+        collection_name = bs.select('.zm-item-title')[0].string.strip() + ' 第{}页'.format(now_page_num)
+    except Exception as e:
+        LOG.log_it("无法获取收藏列表（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）\nERRINFO:{} ".format(str(e)), 'WARN')
+        raise RetryTask
+
+    LOG.log_it("获取收藏夹[{}]".format(collection_name), 'INFO')
+
+    if not bs.select('.zm-item'):
+        LOG.log_it("无法获取收藏列表（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
+        raise RetryTask
 
     for i in bs.select('.zm-item'):
         if i.select('.answer-head a.author-link'):
@@ -139,15 +153,15 @@ def parser_collection(task):
 
         article_path = format_file_name(title, '.html')
         opf.append({'id': article_path, 'href': article_path})
-        html2kindle.make_content(title, content,
+        HTML2KINDLE.make_content(title, content,
                                  os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
                                  {'author_name': author_name, 'voteup_count': voteup_count,
                                   'created_time': created_time})
 
     table_path = format_file_name(collection_name, '_table.html')
     opf_path = os.path.join(task['save']['save_path'], format_file_name(collection_name, '.opf'))
-    html2kindle.make_table(opf, os.path.join(task['save']['save_path'], table_path))
-    html2kindle.make_opf(collection_name, opf, table_path, opf_path)
+    HTML2KINDLE.make_table(opf, os.path.join(task['save']['save_path'], table_path))
+    HTML2KINDLE.make_opf(collection_name, opf, table_path, opf_path)
 
     # Get next page url
     if now_page_num < task['save']['end']:
@@ -165,7 +179,7 @@ def parser_collection(task):
             }))
 
     if task['save']['kw'].get('img', True):
-        img_header = deepcopy(zhihu_collection_config.get('DEFAULT_HEADERS'))
+        img_header = deepcopy(DEFAULT_HEADERS)
         img_header.update({'Referer': response.url})
         for img_url in download_img_list:
             new_tasks.append(Task.make_task({

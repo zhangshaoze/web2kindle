@@ -12,11 +12,11 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, md5string
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, md5string, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
-ZHIHU_ANSWER_CONFIG = load_config('./web2kindle/config/zhihu_answers_config.yml')
+SCRIPT_CONFIG = load_config('./web2kindle/config/zhihu_answers_config.yml')
 MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
 LOG = Log("zhihu_answers")
 HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
@@ -26,12 +26,11 @@ API_URL = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.i
           "permission%2Cmark_infos%2Ccreated_time%2Cupdated_time%2Creview_info%2Cquestion%2Cexcerpt%2Crelationship." \
           "is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author." \
           "badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
+DEFAULT_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+}
 
-if 'DEFAULT_HEADERS' not in ZHIHU_ANSWER_CONFIG:
-    if 'DEFAULT_HEADERS' in MAIN_CONFIG:
-        ZHIHU_ANSWER_CONFIG.update(MAIN_CONFIG.get('DEFAULT_HEADERS'))
-    else:
-        LOG.log_it("在配置文件中没有发现'DEFAULT_HEADERS'项，请确认主配置文件中或脚本配置文件中存在该项。", 'ERROR')
+check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 
 
 def main(zhihu_answers_list, start, end, kw):
@@ -48,7 +47,7 @@ def main(zhihu_answers_list, start, end, kw):
         task = Task.make_task({
             'url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             'method': 'GET',
-            'meta': {'headers': ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'), 'verify': False},
+            'meta': {'headers': DEFAULT_HEADERS, 'verify': False},
             'parser': get_main_js,
             'priority': 0,
             'save': {
@@ -57,7 +56,7 @@ def main(zhihu_answers_list, start, end, kw):
                 'end': end,
                 'kw': kw,
                 'name': zhihu_answers,
-                'save_path': os.path.join(ZHIHU_ANSWER_CONFIG['SAVE_PATH'], zhihu_answers),
+                'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'], zhihu_answers),
                 'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             },
             'retry': 3,
@@ -67,7 +66,7 @@ def main(zhihu_answers_list, start, end, kw):
     crawler.start()
 
     for zhihu_answers in zhihu_answers_list:
-        HTML2KINDLE.make_book_multi(os.path.join(ZHIHU_ANSWER_CONFIG['SAVE_PATH'], str(zhihu_answers)))
+        HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(zhihu_answers)))
     os._exit(0)
 
 
@@ -84,7 +83,7 @@ def get_main_js(task):
         raise RetryTask
     js_url = 'https://static.zhihu.com/heifetz/main.app.{}'.format(js_id.group(1))
 
-    new_headers = deepcopy(ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'))
+    new_headers = deepcopy(DEFAULT_HEADERS)
     new_headers.update({"Referer": task['save']['base_url']})
     meta = deepcopy(task['meta'])
     meta['headers'] = new_headers
@@ -116,7 +115,7 @@ def get_auth(task):
         LOG.log_it("无法获得auth（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
         raise RetryTask
 
-    new_headers = deepcopy(ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'))
+    new_headers = deepcopy(DEFAULT_HEADERS)
     new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth)})
     meta = deepcopy(task['meta'])
     meta['headers'] = new_headers
@@ -138,7 +137,12 @@ def get_answer(task):
     response = task['response']
     opf = []
 
-    json_data = response.json()
+    try:
+        json_data = response.json()
+    except Exception as e:
+        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）\nERRINFO:{}'
+                   .format(str(e)), 'WARN')
+        raise RetryTask
 
     if json_data['paging']['is_end'] is False and task['save']['cursor'] < task['save']['end'] - 20:
         new_task = deepcopy(task)
@@ -210,7 +214,7 @@ def get_answer(task):
         HTML2KINDLE.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
 
     if task['save']['kw'].get('img', True):
-        img_header = deepcopy(ZHIHU_ANSWER_CONFIG.get('DEFAULT_HEADERS'))
+        img_header = deepcopy(DEFAULT_HEADERS)
         img_header.update({'Referer': task['save']['base_url']})
         for img_url in download_img_list:
             new_tasks_list.append(Task.make_task({
