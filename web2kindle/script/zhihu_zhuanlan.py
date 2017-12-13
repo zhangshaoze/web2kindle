@@ -113,7 +113,13 @@ def parser_list(task):
         raise RetryTask
 
     for item in data:
-        opf.append({'href': format_file_name(item['title'], '.html')})
+        # 文件名太长无法制作mobi
+        title = item['title']
+        if len(title) > 55:
+            _ = 55 - len(title) - 3
+            title = title[:_] + '...'
+
+        opf.append({'href': format_file_name(title, '.html')})
         new_task = Task.make_task({
             'url': 'https://zhuanlan.zhihu.com' + item['url'],
             'method': 'GET',

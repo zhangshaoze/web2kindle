@@ -150,7 +150,12 @@ def parser_list(task):
         for item in data['data']['feeds']:
             if item['datatype'] == 'article':
                 item = item['post']
-                opf.append({'href': format_file_name(item['title'], '.html')})
+                # 文件名太长无法制作mobi
+                title = item['title']
+                if len(title) > 55:
+                    _ = 55 - len(title) - 3
+                    title = title[:_] + '...'
+                opf.append({'href': format_file_name(title, '.html')})
                 new_task = Task.make_task({
                     'url': 'https://www.qdaily.com/articles/{}.html'.format(str(item['id'])),
                     'method': 'GET',
