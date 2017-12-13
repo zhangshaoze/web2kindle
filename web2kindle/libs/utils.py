@@ -121,6 +121,15 @@ class HTML2Kindle:
         return result
 
 
+def find_file(rootdir, pattern):
+    finded = []
+    for i in os.listdir(rootdir):
+        if not os.path.isdir(os.path.join(rootdir, i)):
+            if re.search(pattern, i):
+                finded.append(os.path.join(rootdir, i))
+    return finded
+
+
 def write(folder_path, file_path, content, mode='wb'):
     path = os.path.join(folder_path, file_path)
     if not os.path.exists(os.path.split(path)[0]):

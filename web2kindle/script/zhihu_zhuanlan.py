@@ -11,6 +11,7 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.send_email import SendEmail2Kindle
 from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, md5string, load_config, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
@@ -55,6 +56,11 @@ def main(zhuanlan_name_list, start, end, kw):
     crawler.start()
     for zhuanlan_name in zhuanlan_name_list:
         HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(zhuanlan_name)))
+
+    if kw.get('email'):
+        for zhuanlan_name in zhuanlan_name_list:
+            with SendEmail2Kindle() as s:
+                s.send_all_mobi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(zhuanlan_name)))
     os._exit(0)
 
 

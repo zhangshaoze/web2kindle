@@ -11,6 +11,7 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.send_email import SendEmail2Kindle
 from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
@@ -53,6 +54,9 @@ def main(start, end, kw):
 
     crawler.start()
     HTML2KINDLE.make_book_multi(SCRIPT_CONFIG['SAVE_PATH'])
+    if kw.get('email'):
+        with SendEmail2Kindle() as s:
+            s.send_all_mobi(SCRIPT_CONFIG['SAVE_PATH'])
     os._exit(0)
 
 

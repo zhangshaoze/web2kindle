@@ -14,6 +14,7 @@ from urllib.parse import urlparse, unquote
 from web2kindle.libs.crawler import Crawler, md5string, RetryTask, Task
 from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
 from web2kindle.libs.log import Log
+from web2kindle.libs.send_email import SendEmail2Kindle
 from bs4 import BeautifulSoup
 
 SCRIPT_CONFIG = load_config('./web2kindle/config/zhihu_collection_config.yml')
@@ -47,9 +48,16 @@ def main(collection_num_list, start, end, kw):
                      'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num))},
         })
         iq.put(task)
+
     crawler.start()
     for collection_num in collection_num_list:
         HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num)))
+
+    if kw.get('email'):
+        for collection_num in collection_num_list:
+            with SendEmail2Kindle() as s:
+                s.send_all_mobi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num)))
+
     os._exit(0)
 
 
@@ -201,4 +209,4 @@ def parser_collection(task):
 
 
 if __name__ == '__main__':
-    main(['205859764'], 1, 10, {'img': True, 'gif': False})
+    main(['205859764'], 1, 10, {'img': True, 'gif': False, 'email': True})

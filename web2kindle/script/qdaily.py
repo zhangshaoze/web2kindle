@@ -5,8 +5,6 @@
 #         http://wax8280.github.io
 # Created on 17-12-11 下午10:52
 # !/usr/bin/env python
-
-import json
 import os
 import re
 import datetime
@@ -16,7 +14,8 @@ from queue import Queue, PriorityQueue
 from urllib.parse import urlparse
 
 from web2kindle.libs.crawler import Crawler, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, md5string, load_config, check_config
+from web2kindle.libs.send_email import SendEmail2Kindle
+from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
@@ -97,13 +96,16 @@ def main(start, end, kw):
                  'name': 'qdaily_{}_{}_{}'.format(kw['type'], start, end)},
         'retry': 3,
     })
-    print(task)
-
     iq.put(task)
 
     crawler.start()
     HTML2KINDLE.make_book_multi(
         os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str('qdaily_{}_{}_{}'.format(kw['type'], start, end))))
+
+    if kw.get('email'):
+        with SendEmail2Kindle() as s:
+            s.send_all_mobi(
+                os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str('qdaily_{}_{}_{}'.format(kw['type'], start, end))))
     os._exit(0)
 
 
@@ -129,7 +131,7 @@ def parser_list(task):
     try:
         data = response.json()
     except Exception as e:
-        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问，可能是代码升级，请通知开发者。）\nERRINFO:{}'
+        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问，可能是代码升级，请通知开发者。）ERRINFO:{}'
                    .format(str(e)), 'WARN')
         raise RetryTask
 
@@ -263,4 +265,4 @@ def parser_content(task):
 
 
 if __name__ == '__main__':
-    main('2017/12/12', '2017/12/12', {'img': True, 'gif':False,'type': 'game'})
+    main('2017-12-12', '2017-12-11', {'img': True, 'gif': False, 'type': 'home', 'email': True})
