@@ -22,12 +22,14 @@ def cli():
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
 @click.option('--gif/--no-gif', default=False)
-def zhihu_collection_main(i, f, start, end, img, gif):
+@click.option('--email/--no-email', default=False)
+def zhihu_collection_main(i, f, start, end, img, gif, email):
     import web2kindle.script.zhihu_collection
     kw = {}
     kw.update({
         'img': img,
         'gif': gif,
+        'email': email,
     })
     if i:
         web2kindle.script.zhihu_collection.main([i], start, end, kw)
@@ -46,12 +48,14 @@ def zhihu_collection_main(i, f, start, end, img, gif):
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
 @click.option('--gif/--no-gif', default=False)
-def zhihu_zhuanlan_main(i, f, start, end, img, gif):
+@click.option('--email/--no-email', default=False)
+def zhihu_zhuanlan_main(i, f, start, end, img, gif, email):
     import web2kindle.script.zhihu_zhuanlan
     kw = {}
     kw.update({
         'img': img,
         'gif': gif,
+        'email': email,
     })
 
     if i:
@@ -71,12 +75,14 @@ def zhihu_zhuanlan_main(i, f, start, end, img, gif):
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
 @click.option('--gif/--no-gif', default=False)
-def zhihu_answers_main(i, f, start, end, img, gif):
+@click.option('--email/--no-email', default=False)
+def zhihu_answers_main(i, f, start, end, img, gif, email):
     import web2kindle.script.zhihu_answers
     kw = {}
     kw.update({
         'img': img,
         'gif': gif,
+        'email': email,
     })
 
     if i:
@@ -94,12 +100,14 @@ def zhihu_answers_main(i, f, start, end, img, gif):
 @click.option('--end', default=float('inf'))
 @click.option('--img/--no-img', default=True)
 @click.option('--gif/--no-gif', default=False)
-def guoke_scientific(start, end, img, gif):
+@click.option('--email/--no-email', default=False)
+def guoke_scientific(start, end, img, gif, email):
     import web2kindle.script.guoke_scientific
     kw = {}
     kw.update({
         'img': img,
         'gif': gif,
+        'email': email,
     })
     web2kindle.script.guoke_scientific.main(start, end, kw)
 
@@ -110,14 +118,15 @@ def guoke_scientific(start, end, img, gif):
 @click.option('--end', default='default')
 @click.option('--img/--no-img', default=True)
 @click.option('--gif/--no-gif', default=False)
-def qdaily(start, end, img, type, gif):
+@click.option('--email/--no-email', default=False)
+def qdaily(start, end, img, type, gif, email):
     import web2kindle.script.qdaily, datetime, time
     kw = {}
     kw.update({
         'img': img,
         'gif': gif,
-        'type': type
-
+        'type': type,
+        'email': email,
     })
     if start == 'default':
         start = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d')
@@ -151,6 +160,18 @@ def fix_mobi(multi, path):
     from web2kindle.libs.utils import HTML2Kindle
     html2kindle = HTML2Kindle()
     html2kindle.make_book_multi(path, False) if multi else html2kindle.make_book(path, False)
+
+
+@cli.command('fix_mobi')
+@click.option('--path')
+def send_mobi(path):
+    if not path:
+        import os
+        path = os.getcwd()
+
+    from web2kindle.libs.send_email import SendEmail2Kindle
+    with SendEmail2Kindle() as s:
+        s.send_all_mobi(path)
 
 
 if __name__ == '__main__':
