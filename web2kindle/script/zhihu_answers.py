@@ -7,20 +7,22 @@
 import os
 import re
 import datetime
+import time
 from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
 
-from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.crawler import Crawler, RetryDownload, Task
+from web2kindle.libs.db import ArticleDB
+from web2kindle.libs.html2kindle import HTML2Kindle
 from web2kindle.libs.send_email import SendEmail2Kindle
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, md5string, check_config
+from web2kindle.libs.utils import write, load_config, md5string, check_config
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
 SCRIPT_CONFIG = load_config('./web2kindle/config/zhihu_answers_config.yml')
 MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
 LOG = Log("zhihu_answers")
-HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
 API_URL = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.is_normal%2Cadmin_closed_comment%2" \
           "Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Ccollapsed_by%2" \
           "Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Cvoteup_count%2Creshipment_settings%2Ccomment_" \
@@ -28,7 +30,8 @@ API_URL = "https://www.zhihu.com/api/v4/members/{}/answers?include=data%5B*%5D.i
           "is_authorized%2Cvoting%2Cis_author%2Cis_thanked%2Cis_nothelp%2Cupvoted_followees%3Bdata%5B*%5D.author." \
           "badge%5B%3F(type%3Dbest_answerer)%5D.topics&offset={}&limit=20&sort_by=created"
 DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/'
+                  '61.0.3163.100 Safari/537.36'
 }
 
 check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
@@ -45,6 +48,7 @@ def main(zhihu_answers_list, start, end, kw):
     crawler = Crawler(iq, oq, result_q)
 
     for zhihu_answers in zhihu_answers_list:
+        save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], zhihu_answers)
         task = Task.make_task({
             'url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             'method': 'GET',
@@ -57,17 +61,30 @@ def main(zhihu_answers_list, start, end, kw):
                 'end': end,
                 'kw': kw,
                 'name': zhihu_answers,
-                'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'], zhihu_answers),
+                'save_path': save_path,
                 'base_url': 'https://www.zhihu.com/people/{}/answers?page={}'.format(zhihu_answers, start),
             },
             'retry': 3,
         })
         iq.put(task)
+        # Init DB
+        with ArticleDB(save_path, VERSION=0) as db:
+            pass
 
     crawler.start()
 
     for zhihu_answers in zhihu_answers_list:
-        HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(zhihu_answers)))
+        items = []
+        save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(zhihu_answers))
+
+        with ArticleDB(save_path) as db:
+            items.extend(db.select_article())
+            db.insert_meta_data(['BOOK_NAME', zhihu_answers])
+            db.increase_version()
+
+        with HTML2Kindle(items, save_path, MAIN_CONFIG.get('KINDLEGEN_PATH')) as html2kindle:
+            html2kindle.make_metadata(window=kw.get('window', 50))
+            html2kindle.make_book_multi(save_path)
 
     if kw.get('email'):
         for zhihu_answers in zhihu_answers_list:
@@ -79,14 +96,14 @@ def main(zhihu_answers_list, start, end, kw):
 def get_main_js(task):
     response = task['response']
     if not response:
-        raise RetryTask
+        raise RetryDownload
 
     text = response.text
 
     js_id = re.search('src="https://static.zhihu.com/heifetz/main.app.(.*?)"', text)
     if not js_id:
         LOG.log_it("无法获得main_js的地址（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
-        raise RetryTask
+        raise RetryDownload
     js_url = 'https://static.zhihu.com/heifetz/main.app.{}'.format(js_id.group(1))
 
     new_headers = deepcopy(DEFAULT_HEADERS)
@@ -108,7 +125,7 @@ def get_main_js(task):
 def get_auth(task):
     response = task['response']
     if not response:
-        raise RetryTask
+        raise RetryDownload
 
     text = response.text
 
@@ -119,7 +136,7 @@ def get_auth(task):
 
     if not auth:
         LOG.log_it("无法获得auth（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
-        raise RetryTask
+        raise RetryDownload
 
     new_headers = deepcopy(DEFAULT_HEADERS)
     new_headers.update({"Referer": task['save']['base_url'], "authorization": "oauth {}".format(auth)})
@@ -130,6 +147,7 @@ def get_auth(task):
         'url': API_URL.format(task['save']['name'], task['save']['cursor']),
         'method': 'GET',
         'parser': get_answer,
+        'resulter': resulter_answers,
         'priority': 2,
         'meta': meta,
         'save': task['save']
@@ -141,15 +159,16 @@ def get_answer(task):
     new_tasks_list = []
     download_img_list = []
     response = task['response']
-    opf = []
+    items = []
 
     try:
         json_data = response.json()
     except Exception as e:
-        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）\nERRINFO:{}'
+        LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）ERRINFO:{}'
                    .format(str(e)), 'WARN')
-        raise RetryTask
+        raise RetryDownload
 
+    # Next page
     if json_data['paging']['is_end'] is False and task['save']['cursor'] < task['save']['end'] - 20:
         new_task = deepcopy(task)
         new_task['save']['cursor'] += 20
@@ -157,6 +176,7 @@ def get_answer(task):
             'url': API_URL.format(new_task['save']['name'], new_task['save']['cursor']),
             'method': 'GET',
             'parser': get_answer,
+            'resulter': resulter_answers,
             'priority': 2,
             'retried': 0,
         })
@@ -176,6 +196,7 @@ def get_answer(task):
         comment_count = answer['comment_count']
         voteup_count = answer['voteup_count']
         created_time = datetime.datetime.fromtimestamp(answer['created_time']).strftime('%Y-%m-%d')
+        article_url = answer['url']
 
         bs = BeautifulSoup(content, 'lxml')
 
@@ -210,20 +231,8 @@ def get_answer(task):
         # 超链接的转换
         content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
         content = re.sub('<noscript>(.*?)</noscript>', lambda x: x.group(1), content, flags=re.S)
-
-        opf.append({'href': format_file_name(title, '.html')})
-
-        HTML2KINDLE.make_content(title, content,
-                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
-                                 {'author_name': author_name, 'voteup_count': voteup_count,
-                                  'created_time': created_time})
-
-    if opf:
-        opf_name = task['save']['name'] + '（第{}~{}篇）'.format(task['save']['cursor'], task['save']['cursor'] + 20)
-        opf_path = os.path.join(task['save']['save_path'], format_file_name(opf_name, '.opf'))
-
-        HTML2KINDLE.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
-        HTML2KINDLE.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
+        items.append([md5string(article_url), title, content, created_time, voteup_count, author_name,
+                      int(time.time() * 100000)])
 
     if task['save']['kw'].get('img', True):
         img_header = deepcopy(DEFAULT_HEADERS)
@@ -234,23 +243,33 @@ def get_answer(task):
                 'method': 'GET',
                 'meta': {'headers': img_header, 'verify': False},
                 'parser': parser_downloader_img,
+                'resulter': resulter_downloader_img,
                 'save': task['save'],
                 'priority': 3,
             }))
 
-    return None, new_tasks_list
+    task.update({"parsed_data": items})
+    return task, new_tasks_list
+
+
+def resulter_answers(task):
+    LOG.log_it("正在将任务 {} 插入数据库".format(task['tid']), 'INFO')
+    with ArticleDB(task['save']['save_path']) as article_db:
+        article_db.insert_article(task['parsed_data'])
 
 
 def parser_downloader_img(task):
-    if task['response']:
-        if 'www.zhihu.com/equation' not in task['url']:
-            write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
-                  task['response'].content, mode='wb')
-        else:
-            write(os.path.join(task['save']['save_path'], 'static'), md5string(task['url']) + '.svg',
-                  task['response'].content,
-                  mode='wb')
-    return None, None
+    return task, None
+
+
+def resulter_downloader_img(task):
+    if 'www.zhihu.com/equation' not in task['url']:
+        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+              task['response'].content, mode='wb')
+    else:
+        write(os.path.join(task['save']['save_path'], 'static'), md5string(task['url']) + '.svg',
+              task['response'].content,
+              mode='wb')
 
 
 def convert_link(x):

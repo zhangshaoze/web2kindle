@@ -10,21 +10,24 @@ import random
 from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse, unquote
+import time
 
-from web2kindle.libs.crawler import Crawler, md5string, RetryTask, Task
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
+from web2kindle.libs.crawler import Crawler, md5string, RetryDownload, Task
+from web2kindle.libs.db import ArticleDB
+from web2kindle.libs.utils import write, load_config, check_config
+from web2kindle.libs.html2kindle import HTML2Kindle
 from web2kindle.libs.log import Log
 from web2kindle.libs.send_email import SendEmail2Kindle
 from bs4 import BeautifulSoup
 
 SCRIPT_CONFIG = load_config('./web2kindle/config/zhihu_collection_config.yml')
 MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
-HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
+GET_BOOK_NAME_FLAG = False
 LOG = Log('zhihu_collection')
 DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/'
+                  '61.0.3163.100 Safari/537.36'
 }
-
 check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 
 
@@ -35,23 +38,39 @@ def main(collection_num_list, start, end, kw):
     crawler = Crawler(iq, oq, result_q)
 
     for collection_num in collection_num_list:
+        save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num))
+
         task = Task.make_task({
             'url': 'https://www.zhihu.com/collection/{}?page={}'.format(collection_num, start),
             'method': 'GET',
             'meta': {'headers': DEFAULT_HEADERS, 'verify': False},
             'parser': parser_collection,
+            'resulter': resulter_collection,
             'priority': 0,
             'retry': 3,
             'save': {'start': start,
                      'end': end,
                      'kw': kw,
-                     'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num))},
+                     'save_path': save_path,
+                     'name': collection_num, },
         })
         iq.put(task)
+        # Init DB
+        with ArticleDB(save_path, VERSION=0) as db:
+            pass
 
     crawler.start()
     for collection_num in collection_num_list:
-        HTML2KINDLE.make_book_multi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num)))
+        items = []
+        save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num))
+        with ArticleDB(save_path) as db:
+            items.extend(db.select_article())
+            book_name = db.select_meta('BOOK_NAME')
+            db.increase_version()
+
+        with HTML2Kindle(items, save_path, book_name, MAIN_CONFIG.get('KINDLEGEN_PATH')) as html2kindle:
+            html2kindle.make_metadata(window=kw.get('window', 50))
+            html2kindle.make_book_multi(save_path)
 
     if kw.get('email'):
         for collection_num in collection_num_list:
@@ -61,37 +80,16 @@ def main(collection_num_list, start, end, kw):
     os._exit(0)
 
 
-def parser_downloader_img(task):
-    if task['response']:
-        if 'www.zhihu.com/equation' not in task['url']:
-            write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
-                  task['response'].content, mode='wb')
-        else:
-            write(os.path.join(task['save']['save_path'], 'static'), md5string(task['url']) + '.svg',
-                  task['response'].content,
-                  mode='wb')
-    return None, None
-
-
-def convert_link(x):
-    if 'www.zhihu.com/equation' not in x.group(1):
-        return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
-    # svg等式的保存
-    else:
-        a = 'src="./static/{}.svg"'.format(md5string(x.group(1)))
-        return a
-
-
 def parser_collection(task):
     response = task['response']
     if not response:
-        raise RetryTask
+        raise RetryDownload
 
     text = response.text
     bs = BeautifulSoup(text, 'lxml')
     download_img_list = []
     new_tasks = []
-    opf = []
+    items = []
 
     now_page_num = re.search('page=(\d*)$', response.url)
     if now_page_num:
@@ -103,40 +101,38 @@ def parser_collection(task):
         collection_name = bs.select('.zm-item-title')[0].string.strip() + ' 第{}页'.format(now_page_num)
     except Exception as e:
         LOG.log_it("无法获取收藏列表（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）\nERRINFO:{} ".format(str(e)), 'WARN')
-        raise RetryTask
+        raise RetryDownload
 
     LOG.log_it("获取收藏夹[{}]".format(collection_name), 'INFO')
 
     if not bs.select('.zm-item'):
         LOG.log_it("无法获取收藏列表（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）", 'WARN')
-        raise RetryTask
-
+        raise RetryDownload
+    book_name = bs.select('#zh-fav-head-title')[0].string.strip() if bs.select('#zh-fav-head-title') else task['save'][
+        'name']
     for i in bs.select('.zm-item'):
         if i.select('.answer-head a.author-link'):
             author_name = i.select('.answer-head a.author-link')[0].string
         else:
             # 防止重名
-            author_name = '匿名{}'.format(random.randint(0, 999999))
+            author_name = '匿名{}'.format(
+                ''.join([chr(random.choice(list(set(range(65, 123)) - set(range(91, 97))))) for i in range(3)]))
 
         title = i.select('.zm-item-title a')[0].string if i.select('.zm-item-title a') else ''
-
-        # 文件名太长无法制作mobi
-        if len(title) + len(author_name) + 2 > 55:
-            _ = 55 - len(author_name) - 2 - 3
-            title = title[:_] + '...' '（{}）'.format(author_name)
-        else:
-            title = title + '（{}）'.format(author_name)
-
         content = i.select('.content')[0].string if i.select('.content') else ''
         voteup_count = i.select('a.zm-item-vote-count')[0].string if i.select('a.zm-item-vote-count') else ''
-        created_time = i.select('p.visible-expanded a')[0].string if i.select('p.visible-expanded a') else ''
+        created_time = i.select('p.visible-expanded a')[0].string.replace('发布于 ', '') if i.select(
+            'p.visible-expanded a') else ''
+        try:
+            article_url = i.select('.zm-item-title a')[0].attrs['href']
+        except Exception as e:
+            LOG.log_it("无法获取收藏列表（如一直出现，而且浏览器能正常访问知乎，可能是知乎代码升级，请通知开发者。）\nERRINFO:{} ".format(str(e)), 'WARN')
+            raise RetryDownload
 
         bs2 = BeautifulSoup(content, 'lxml')
-
         for tab in bs2.select('img[src^="data"]'):
             # 删除无用的img标签
             tab.decompose()
-
         # 居中图片
         for tab in bs2.select('img'):
             if 'equation' not in tab['src']:
@@ -148,7 +144,6 @@ def parser_collection(task):
                 if 'gif' in tab['src']:
                     tab.decompose()
                     continue
-
         content = str(bs2)
         # bs4会自动加html和body 标签
         content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
@@ -158,24 +153,14 @@ def parser_collection(task):
 
         # 需要下载的静态资源
         download_img_list.extend(re.findall('src="(http.*?)"', content))
-
         # 更换为本地相对路径
         content = re.sub('src="(.*?)"', convert_link, content)
 
         # 超链接的转换
         content = re.sub('//link.zhihu.com/\?target=(.*?)"', lambda x: unquote(x.group(1)), content)
 
-        article_path = format_file_name(title, '.html')
-        opf.append({'id': article_path, 'href': article_path})
-        HTML2KINDLE.make_content(title, content,
-                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
-                                 {'author_name': author_name, 'voteup_count': voteup_count,
-                                  'created_time': created_time})
-
-    table_path = format_file_name(collection_name, '_table.html')
-    opf_path = os.path.join(task['save']['save_path'], format_file_name(collection_name, '.opf'))
-    HTML2KINDLE.make_table(opf, os.path.join(task['save']['save_path'], table_path))
-    HTML2KINDLE.make_opf(collection_name, opf, table_path, opf_path)
+        items.append([md5string(article_url), title, content, created_time, voteup_count, author_name,
+                      int(time.time() * 100000)])
 
     # Get next page url
     if now_page_num < task['save']['end']:
@@ -201,12 +186,50 @@ def parser_collection(task):
                 'method': 'GET',
                 'meta': {'headers': img_header, 'verify': False},
                 'parser': parser_downloader_img,
+                'resulter': resulter_downloader_img,
                 'priority': 5,
                 'save': task['save']
             }))
 
-    return None, new_tasks
+    task.update({'parsed_data': items})
+    task['save'].update({'book_name': book_name})
+    return task, new_tasks
+
+
+def resulter_collection(task):
+    with ArticleDB(task['save']['save_path']) as article_db:
+        global GET_BOOK_NAME_FLAG
+        if GET_BOOK_NAME_FLAG is False:
+            try:
+                article_db.insert_meta_data(['BOOK_NAME', task['save']['book_name']], update=False)
+                GET_BOOK_NAME_FLAG = True
+            except:
+                pass
+        article_db.insert_article(task['parsed_data'])
+
+
+def parser_downloader_img(task):
+    return task, None
+
+
+def resulter_downloader_img(task):
+    if 'www.zhihu.com/equation' not in task['url']:
+        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+              task['response'].content, mode='wb')
+    else:
+        write(os.path.join(task['save']['save_path'], 'static'), md5string(task['url']) + '.svg',
+              task['response'].content,
+              mode='wb')
+
+
+def convert_link(x):
+    if 'www.zhihu.com/equation' not in x.group(1):
+        return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
+    # svg等式的保存
+    else:
+        a = 'src="./static/{}.svg"'.format(md5string(x.group(1)))
+        return a
 
 
 if __name__ == '__main__':
-    main(['205859764'], 1, 10, {'img': True, 'gif': False, 'email': True})
+    main(['205859764'], 1, 10, {'img': True, 'gif': False, 'email': False})

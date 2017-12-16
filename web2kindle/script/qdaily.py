@@ -9,23 +9,26 @@ import os
 import re
 import datetime
 import traceback
+import time
 from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse
 
-from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.crawler import Crawler, RetryDownload, Task
+from web2kindle.libs.db import ArticleDB
+from web2kindle.libs.html2kindle import HTML2Kindle
 from web2kindle.libs.send_email import SendEmail2Kindle
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
+from web2kindle.libs.utils import write, format_file_name, load_config, check_config, md5string
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
 SCRIPT_CONFIG = load_config('./web2kindle/config/qdaily_config.yml')
 MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
-HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
 LOG = Log("qdaily_home")
 API_URL = 'https://www.qdaily.com/homes/articlemore/{}.json'
 DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/'
+                  '61.0.3163.100 Safari/537.36'
 }
 check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 API_BUSINESS = 'https://www.qdaily.com/categories/categorymore/18/{}.json'
@@ -80,6 +83,8 @@ def main(start, end, kw):
 
     new_header = deepcopy(SCRIPT_CONFIG.get('DEFAULT_HEADERS'))
     new_header.update({'Referer': 'https://www.qdaily.com/'})
+    save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], 'qdaily_{}'.format(kw['type']))
+    book_name = 'qdaily_{}_{}_{}'.format(kw['type'], start, end)
     task = Task.make_task({
         'url': API_URL.format(start_t),
         'method': 'GET',
@@ -87,37 +92,36 @@ def main(start, end, kw):
         'parser': parser_list,
         'priority': 0,
         'save': {'cursor': start_t,
-                 'save_path': os.path.join(SCRIPT_CONFIG['SAVE_PATH'],
-                                           'qdaily_{}_{}_{}'.format(kw['type'], start, end)),
+                 'save_path': save_path,
                  'start': start_t,
                  'end': end_t,
                  'kw': kw,
                  'page': 1,
-                 'name': 'qdaily_{}_{}_{}'.format(kw['type'], start, end)},
+                 'name': book_name, },
         'retry': 3,
     })
     iq.put(task)
+    # Init DB
+    with ArticleDB(save_path, VERSION=0) as db:
+        pass
 
     crawler.start()
-    HTML2KINDLE.make_book_multi(
-        os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str('qdaily_{}_{}_{}'.format(kw['type'], start, end))))
+
+    items = []
+    with ArticleDB(save_path) as db:
+        items.extend(db.select_article())
+        db.insert_meta_data(['BOOK_NAME', book_name])
+        db.increase_version()
+
+    with HTML2Kindle(items, save_path, book_name, MAIN_CONFIG.get('KINDLEGEN_PATH')) as html2kindle:
+        html2kindle.make_metadata(window=kw.get('window', 50))
+        html2kindle.make_book_multi(save_path)
 
     if kw.get('email'):
         with SendEmail2Kindle() as s:
             s.send_all_mobi(
-                os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str('qdaily_{}_{}_{}'.format(kw['type'], start, end))))
+                os.path.join(SCRIPT_CONFIG['SAVE_PATH'], book_name))
     os._exit(0)
-
-
-def parser_downloader_img(task):
-    if task['response']:
-        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
-              task['response'].content, mode='wb')
-    return None, None
-
-
-def convert_link(x):
-    return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
 
 
 def parser_list(task):
@@ -126,16 +130,17 @@ def parser_list(task):
     opf = []
 
     if not response:
-        raise RetryTask
+        raise RetryDownload
 
     try:
         data = response.json()
     except Exception as e:
         LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问，可能是代码升级，请通知开发者。）ERRINFO:{}'
                    .format(str(e)), 'WARN')
-        raise RetryTask
+        raise RetryDownload
 
     try:
+        # Next page
         if len(data['data']) != 0:
             if data['data']['last_key'] > task['save']['end'] - 144209:
                 next_page_task = deepcopy(task)
@@ -145,7 +150,7 @@ def parser_list(task):
                 new_tasks.append(next_page_task)
         else:
             LOG.log_it('不能读取专栏列表。（如一直出现，而且浏览器能正常访问，可能是代码升级，请通知开发者。）', 'WARN')
-            raise RetryTask
+            raise RetryDownload
 
         for item in data['data']['feeds']:
             if item['datatype'] == 'article':
@@ -161,6 +166,7 @@ def parser_list(task):
                     'method': 'GET',
                     'meta': task['meta'],
                     'parser': parser_content,
+                    'resulter': resulter_content,
                     'priority': 5,
                     'save': task['save'],
                     'title': item['title'],
@@ -170,104 +176,101 @@ def parser_list(task):
                 new_tasks.append(new_task)
     except KeyError:
         LOG.log_it('JSON KEY出错（如一直出现，而且浏览器能正常访问，可能是网站代码升级，请通知开发者。）', 'WARN')
-        raise RetryTask
-
-    if opf:
-        opf_files_name = task['save']['name'] + '（第{}页）'.format(str(task['save']['page']))
-        opf_path = os.path.join(task['save']['save_path'], format_file_name(opf_files_name, '.opf'))
-
-        HTML2KINDLE.make_table(opf,
-                               os.path.join(task['save']['save_path'], format_file_name(opf_files_name, '_table.html')))
-        HTML2KINDLE.make_opf(opf_files_name, opf, format_file_name(opf_files_name, '_table.html'), opf_path)
-
+        raise RetryDownload
     return None, new_tasks
 
 
 def parser_content(task):
     title = task['title']
-
-    # 文件名太长无法制作mobi
-    if len(title) > 55:
-        _ = 55 - len(title) - 3
-        title = title[:_] + '...'
-
+    items = []
     download_img_list = []
     new_tasks = []
 
-    try:
-        response = task['response']
-        if not response:
-            raise RetryTask
+    response = task['response']
+    if not response:
+        raise RetryDownload
 
-        response.encoding = 'utf-8'
-        bs = BeautifulSoup(response.text, 'lxml')
+    response.encoding = 'utf-8'
+    bs = BeautifulSoup(response.text, 'lxml')
 
-        content_tab = bs.select('.article-detail-bd > .detail')
-        if content_tab:
-            content = str(content_tab[0])
-        else:
-            LOG.log_it("不能找到文章的内容。（如一直出现，而且浏览器能正常访问，可能是代码升级，请通知开发者。）", 'WARN')
-            raise RetryTask
+    content_tab = bs.select('.article-detail-bd > .detail')
+    if content_tab:
+        content = str(content_tab[0])
+    else:
+        LOG.log_it("不能找到文章的内容。（如一直出现，而且浏览器能正常访问，可能是代码升级，请通知开发者。）", 'WARN')
+        raise RetryDownload
 
-        author_name = '未知'
-        voteup_count = task['voteup_count']
-        created_time = task['created_time']
+    author_name = '未知'
+    voteup_count = task['voteup_count']
+    created_time = task['created_time']
+    article_url = task['url']
 
-        bs = BeautifulSoup(content, 'lxml')
+    bs = BeautifulSoup(content, 'lxml')
 
-        # 居中图片
-        for tab in bs.select('img'):
-            if len(tab.attrs['class']) != 1:
+    # 居中图片
+    for tab in bs.select('img'):
+        if len(tab.attrs['class']) != 1:
+            tab.decompose()
+            continue
+
+        # 删除gif
+        if task['save']['kw']['gif'] is False:
+            if 'gif' in tab['data-src']:
                 tab.decompose()
                 continue
 
-            # 删除gif
-            if task['save']['kw']['gif'] is False:
-                if 'gif' in tab['data-src']:
-                    tab.decompose()
-                    continue
+        tab.wrap(bs.new_tag('div', style='text-align:center;'))
+        tab['style'] = "display: inline-block;"
 
-            tab.wrap(bs.new_tag('div', style='text-align:center;'))
-            tab['style'] = "display: inline-block;"
+    content = str(bs)
+    # bs4会自动加html和body 标签
+    content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
 
-        content = str(bs)
-        # bs4会自动加html和body 标签
-        content = re.sub('<html><body>(.*?)</body></html>', lambda x: x.group(1), content, flags=re.S)
+    download_img_list.extend(re.findall('src="(http.*?)"', content))
 
-        download_img_list.extend(re.findall('src="(http.*?)"', content))
+    # 更换为本地相对路径
+    content = re.sub('src="(.*?)"', convert_link, content)
+    content = content.replace('data-src', 'src')
 
-        # 更换为本地相对路径
-        content = re.sub('src="(.*?)"', convert_link, content)
-        content = content.replace('data-src', 'src')
+    items.append([md5string(article_url), title, content, created_time, voteup_count, author_name,
+                  int(time.time() * 100000)])
 
-        HTML2KINDLE.make_content(title, content,
-                                 os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
-                                 {'author_name': author_name, 'voteup_count': voteup_count,
-                                  'created_time': created_time})
+    if task['save']['kw'].get('img', True):
+        img_header = deepcopy(SCRIPT_CONFIG.get('DEFAULT_HEADERS'))
+        img_header.update({'Referer': response.url})
+        for img_url in download_img_list:
+            new_tasks.append(Task.make_task({
+                'url': img_url,
+                'method': 'GET',
+                'meta': {'headers': img_header, 'verify': False},
+                'parser': parser_downloader_img,
+                'resulter': resulter_downloader_img,
+                'save': task['save'],
+                'priority': 10,
+            }))
 
-        if task['save']['kw'].get('img', True):
-            img_header = deepcopy(SCRIPT_CONFIG.get('DEFAULT_HEADERS'))
-            img_header.update({'Referer': response.url})
-            for img_url in download_img_list:
-                new_tasks.append(Task.make_task({
-                    'url': img_url,
-                    'method': 'GET',
-                    'meta': {'headers': img_header, 'verify': False},
-                    'parser': parser_downloader_img,
-                    'save': task['save'],
-                    'priority': 10,
-                }))
-    except RetryTask:
-        HTML2KINDLE.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
-        raise RetryTask
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        HTML2KINDLE.make_content(title, '', os.path.join(task['save']['save_path'], format_file_name(title, '.html')))
-        raise e
+    task.update({'parsed_data': items})
+    return task, new_tasks
 
-    return None, new_tasks
+
+def resulter_content(task):
+    LOG.log_it("正在将任务 {} 插入数据库".format(task['tid']), 'INFO')
+    with ArticleDB(task['save']['save_path']) as article_db:
+        article_db.insert_article(task['parsed_data'])
+
+
+def parser_downloader_img(task):
+    return task, None
+
+
+def resulter_downloader_img(task):
+    write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+          task['response'].content, mode='wb')
+
+
+def convert_link(x):
+    return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
 
 
 if __name__ == '__main__':
-    main('2017-12-12', '2017-12-11', {'img': True, 'gif': False, 'type': 'home', 'email': True})
+    main('2017-12-10', '2017-12-10', {'img': False, 'gif': False, 'type': 'home', 'email': False})

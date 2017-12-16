@@ -6,23 +6,26 @@
 # Created on 17-10-23 下午7:14
 import os
 import re
+import time
 from copy import deepcopy
 from queue import Queue, PriorityQueue
 from urllib.parse import urlparse
 
-from web2kindle.libs.crawler import Crawler, RetryTask, Task
+from web2kindle.libs.crawler import Crawler, RetryDownload, Task
+from web2kindle.libs.db import ArticleDB
+from web2kindle.libs.html2kindle import HTML2Kindle
 from web2kindle.libs.send_email import SendEmail2Kindle
-from web2kindle.libs.utils import HTML2Kindle, write, format_file_name, load_config, check_config
+from web2kindle.libs.utils import write, format_file_name, load_config, check_config, md5string
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
 SCRIPT_CONFIG = load_config('./web2kindle/config/guoke_scientific_config.yml')
 MAIN_CONFIG = load_config('./web2kindle/config/config.yml')
-HTML2KINDLE = HTML2Kindle(MAIN_CONFIG.get('KINDLEGEN_PATH'))
 LOG = Log("guoke_scientific")
 API_URL = "http://www.guokr.com/apis/minisite/article.json?retrieve_type=by_subject&limit=20&offset={}&_=1508757235776"
 DEFAULT_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/'
+                  '61.0.3163.100 Safari/537.36'
 }
 check_config(MAIN_CONFIG, SCRIPT_CONFIG, 'SAVE_PATH', LOG)
 
@@ -34,7 +37,8 @@ def main(start, end, kw):
     crawler = Crawler(iq, oq, result_q)
     default_headers = deepcopy(DEFAULT_HEADERS)
     default_headers.update({'Referer': 'http://www.guokr.com/scientific/'})
-
+    save_path = SCRIPT_CONFIG['SAVE_PATH']
+    book_name = '果壳网'
     task = Task.make_task({
         'url': API_URL.format(start),
         'method': 'GET',
@@ -51,9 +55,23 @@ def main(start, end, kw):
         'retry': 3,
     })
     iq.put(task)
+    # Init DB
+    with ArticleDB(save_path, VERSION=0) as db:
+        pass
 
     crawler.start()
-    HTML2KINDLE.make_book_multi(SCRIPT_CONFIG['SAVE_PATH'])
+
+    items = []
+
+    with ArticleDB(save_path) as db:
+        items.extend(db.select_article())
+        db.insert_meta_data(['BOOK_NAME', book_name])
+        db.increase_version()
+
+    with HTML2Kindle(items, save_path, book_name, MAIN_CONFIG.get('KINDLEGEN_PATH')) as html2kindle:
+        html2kindle.make_metadata(window=kw.get('window', 50))
+        html2kindle.make_book_multi(save_path)
+
     if kw.get('email'):
         with SendEmail2Kindle() as s:
             s.send_all_mobi(SCRIPT_CONFIG['SAVE_PATH'])
@@ -62,18 +80,17 @@ def main(start, end, kw):
 
 def parser_list(task):
     response = task['response']
-    if not response:
-        raise RetryTask
-
     new_tasks = []
-    opf = []
+
+    if not response:
+        raise RetryDownload
 
     try:
         data = response.json()
     except Exception as e:
         LOG.log_it('解析JSON出错（如一直出现，而且浏览器能正常访问，可能是网站代码升级，请通知开发者。）\nERRINFO:{}'
                    .format(str(e)), 'WARN')
-        raise RetryTask
+        raise RetryDownload
 
     try:
         for each_result in data['result']:
@@ -92,23 +109,15 @@ def parser_list(task):
                 'url': url,
                 'method': 'GET',
                 'parser': parser_content,
+                'resulter': resulter_content,
                 'priority': 1,
                 'meta': meta,
                 'save': save
             })
             new_tasks.append(new_task)
-
-            opf.append({'href': format_file_name(title, '.html')})
     except KeyError:
         LOG.log_it('JSON KEY出错（如一直出现，而且浏览器能正常访问，可能是网站代码升级，请通知开发者。）', 'WARN')
-        raise RetryTask
-
-    if opf:
-        opf_name = '果壳网_科学人（第{}~{}篇）'.format(task['save']['cursor'], task['save']['cursor'] + 20)
-        opf_path = os.path.join(task['save']['save_path'], format_file_name(opf_name, '.opf'))
-
-        HTML2KINDLE.make_table(opf, os.path.join(task['save']['save_path'], format_file_name(opf_name, '_table.html')))
-        HTML2KINDLE.make_opf(opf_name, opf, format_file_name(opf_name, '_table.html'), opf_path)
+        raise RetryDownload
 
     # 获取下一页
     meta = deepcopy(task['meta'])
@@ -132,11 +141,11 @@ def parser_list(task):
 def parser_content(task):
     response = task['response']
     if not response:
-        raise RetryTask
+        raise RetryDownload
 
     new_tasks = []
     download_img_list = []
-    opf = []
+    items = []
     soup = BeautifulSoup(response.text, 'lxml')
 
     content_select = soup.select('.document')
@@ -155,11 +164,10 @@ def parser_content(task):
     # 去掉"[]"
     content = content[1:-1]
 
-    # 文件名太长无法制作mobi
     title = task['save']['title']
-    if len(title) > 55:
-        _ = 55 - 3
-        title = title[:_] + '...'
+    article_url = task['url']
+    created_time = soup.select('.content-th-info span')[0].string[3:]
+    author = soup.select('.content-th-info a')[0].string
 
     bs2 = BeautifulSoup(content, 'lxml')
     # 居中图片
@@ -175,12 +183,7 @@ def parser_content(task):
 
     content = str(bs2)
 
-    article_path = format_file_name(title, '.html')
-    opf.append({'id': article_path, 'href': article_path})
-    HTML2KINDLE.make_content(title, content,
-                             os.path.join(task['save']['save_path'], format_file_name(title, '.html')),
-                             {'author_name': '', 'voteup_count': '',
-                              'created_time': task['save']['date']})
+    items.append([md5string(article_url), title, content, created_time, '', author, int(time.time() * 100000)])
 
     if task['save']['kw'].get('img', True):
         img_header = deepcopy(DEFAULT_HEADERS)
@@ -194,14 +197,23 @@ def parser_content(task):
                 'priority': 2,
                 'save': task['save']
             }))
-    return None, new_tasks
+    task.update({'parsed_data': items})
+    return task, new_tasks
+
+
+def resulter_content(task):
+    LOG.log_it("正在将任务 {} 插入数据库".format(task['tid']), 'INFO')
+    with ArticleDB(task['save']['save_path']) as article_db:
+        article_db.insert_article(task['parsed_data'])
 
 
 def parser_downloader_img(task):
-    if task['response']:
-        write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
-              task['response'].content, mode='wb')
-    return None, None
+    return task, None
+
+
+def resulter_downloader_img(task):
+    write(os.path.join(task['save']['save_path'], 'static'), urlparse(task['response'].url).path[1:],
+          task['response'].content, mode='wb')
 
 
 def convert_link(x):
