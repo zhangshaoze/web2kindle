@@ -235,7 +235,3 @@ def convert_link(x):
             url = 'http://' + url
         a = 'src="./static/{}.svg"'.format(md5string(url))
         return a
-
-
-if __name__ == '__main__':
-    main(['PatrickZhang'], 0, 20, {'img': True, 'gif': False, 'email': False})

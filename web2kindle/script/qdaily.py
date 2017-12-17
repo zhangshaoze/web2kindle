@@ -269,7 +269,3 @@ def resulter_downloader_img(task):
 
 def convert_link(x):
     return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
-
-
-if __name__ == '__main__':
-    main('2017-12-17', '2017-12-17', {'img': False, 'gif': False, 'type': 'home', 'email': False})
