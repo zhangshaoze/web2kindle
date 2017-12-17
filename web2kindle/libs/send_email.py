@@ -32,9 +32,9 @@ class SendEmail:
 
     def connect(self):
         try:
-            self.log.log_it("正在连接邮件服务器")
+            self.log.log_it("正在连接邮件服务器", 'INFO')
             self.client.connect(self.smtp_addr)
-            self.log.log_it("正在登录服务器")
+            self.log.log_it("正在登录服务器", 'INFO')
             self.client.login(self.username, self.password)
             return True
         except smtplib.SMTPAuthenticationError:
