@@ -131,14 +131,6 @@ class Task(dict):
 
         if not params['url'].startswith('http'):
             params['url'] = 'http://' + params['url']
-
-        if re.match(r'^https?:/{2}\w.+$', params['url']):
-            # FIXME
-            # http://www.zhihu.com/equation?tex=U_%7BR1%7D%5E%7B%27%7D+%3D0
-            # params['url'] = furl(params['url']).url
-            pass
-        else:
-            raise Exception("Not a vaild URL.URL:{}".format(params['url']))
         return Task(**params)
 
 
