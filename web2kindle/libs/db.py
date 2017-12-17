@@ -36,7 +36,7 @@ UPDATE_META_DATA_SQL = "UPDATE META SET DATA = ? WHERE META = ?"
 
 INSERT_ARTICLE_SQL = "INSERT INTO ARTICLE VALUES (?,?,?,?,?,?,?,?);"
 SELECT_ARTICLE_SQL = "SELECT * FROM ARTICLE WHERE VERSION = ?"
-# GET_LAST_VERION_SQL = "SELECT MAX(VERSION) FROM ARTICLE;"
+SELECT_LAST_VERION_FROM_ARTICLE_SQL = "SELECT MAX(VERSION) FROM ARTICLE;"
 SELECT_METADATA_SQL = "SELECT DATA FROM META WHERE META = ?"
 
 
@@ -162,6 +162,10 @@ class ArticleDB:
 
     def select_meta(self, meta):
         return self.cursor.execute(SELECT_METADATA_SQL, (meta,)).fetchone()[0]
+
+    def reset_version(self):
+        version = int(self.cursor.execute(SELECT_LAST_VERION_FROM_ARTICLE_SQL).fetchone()[0])
+        self.insert_meta_data(['VERSION', version - 1])
 
 
 if __name__ == '__main__':
