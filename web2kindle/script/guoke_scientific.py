@@ -15,7 +15,7 @@ from web2kindle.libs.crawler import Crawler, RetryDownload, Task
 from web2kindle.libs.db import ArticleDB
 from web2kindle.libs.html2kindle import HTML2Kindle
 from web2kindle.libs.send_email import SendEmail2Kindle
-from web2kindle.libs.utils import write, format_file_name, load_config, check_config, md5string
+from web2kindle.libs.utils import write, load_config, check_config, md5string
 from web2kindle.libs.log import Log
 from bs4 import BeautifulSoup
 
@@ -83,6 +83,7 @@ def parser_list(task):
     new_tasks = []
 
     if not response:
+        LOG.log_it("Not Response", 'WARN')
         raise RetryDownload
 
     try:
@@ -141,6 +142,7 @@ def parser_list(task):
 def parser_content(task):
     response = task['response']
     if not response:
+        LOG.log_it("Not Response", 'WARN')
         raise RetryDownload
 
     new_tasks = []
@@ -194,6 +196,7 @@ def parser_content(task):
                 'method': 'GET',
                 'meta': {'headers': img_header, 'verify': False},
                 'parser': parser_downloader_img,
+                'resulter': resulter_downloader_img,
                 'priority': 2,
                 'save': task['save']
             }))
@@ -221,4 +224,4 @@ def convert_link(x):
 
 
 if __name__ == '__main__':
-    main(0, 20, {'img': False, 'gif': False})
+    main(20, 30, {'img': True, 'gif': False})
