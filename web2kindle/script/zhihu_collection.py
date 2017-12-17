@@ -74,8 +74,9 @@ def main(collection_num_list, start, end, kw):
 
     if kw.get('email'):
         for collection_num in collection_num_list:
+            save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num))
             with SendEmail2Kindle() as s:
-                s.send_all_mobi(os.path.join(SCRIPT_CONFIG['SAVE_PATH'], str(collection_num)))
+                s.send_all_mobi(save_path)
 
     os._exit(0)
 
@@ -115,10 +116,11 @@ def parser_collection(task):
             author_name = i.select('.answer-head a.author-link')[0].string
         else:
             # 防止重名
-            author_name = '匿名{}'.format(
-                ''.join([chr(random.choice(list(set(range(65, 123)) - set(range(91, 97))))) for i in range(3)]))
-
+            author_name = '匿名{}'
         title = i.select('.zm-item-title a')[0].string if i.select('.zm-item-title a') else ''
+
+        if '21世纪工程师穿越成统一六国的嬴政' in title:
+            pass
         content = i.select('.content')[0].string if i.select('.content') else ''
         voteup_count = i.select('a.zm-item-vote-count')[0].string if i.select('a.zm-item-vote-count') else ''
         created_time = i.select('p.visible-expanded a')[0].string.replace('发布于 ', '') if i.select(
@@ -152,7 +154,7 @@ def parser_collection(task):
         # content = content.replace('//www.zhihu.com', 'http://www.zhihu.com')
 
         # 需要下载的静态资源
-        download_img_list.extend(re.findall('src="(http.*?)"', content))
+        download_img_list.extend(re.findall('src="(.*?)"', content))
         # 更换为本地相对路径
         content = re.sub('src="(.*?)"', convert_link, content)
 
@@ -174,7 +176,8 @@ def parser_collection(task):
                 'priority': 0,
                 'save': task['save'],
                 'meta': task['meta'],
-                'parser': parser_collection
+                'parser': parser_collection,
+                'resulter': resulter_collection,
             }))
 
     if task['save']['kw'].get('img', True):
@@ -201,7 +204,7 @@ def resulter_collection(task):
         global GET_BOOK_NAME_FLAG
         if GET_BOOK_NAME_FLAG is False:
             try:
-                article_db.insert_meta_data(['BOOK_NAME', task['save']['book_name']], update=False)
+                article_db.insert_meta_data(['BOOK_NAME', '知乎收藏夹_' + task['save']['book_name']], update=False)
                 GET_BOOK_NAME_FLAG = True
             except:
                 pass
@@ -227,9 +230,14 @@ def convert_link(x):
         return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
     # svg等式的保存
     else:
-        a = 'src="./static/{}.svg"'.format(md5string(x.group(1)))
+        url = x.group(1)
+        if url.startswith('//'):
+            url = 'http:' + url
+        else:
+            url = 'http://' + url
+        a = 'src="./static/{}.svg"'.format(md5string(url))
         return a
 
 
 if __name__ == '__main__':
-    main(['205859764'], 1, 10, {'img': True, 'gif': False, 'email': False})
+    main(['207088675'], 1, float('inf'), {'img': True, 'gif': False, 'email': False})

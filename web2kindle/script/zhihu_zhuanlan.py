@@ -228,7 +228,12 @@ def convert_link(x):
         return 'src="./static/{}"'.format(urlparse(x.group(1)).path[1:])
     # svg等式的保存
     else:
-        a = 'src="./static/{}.svg"'.format(md5string(x.group(1)))
+        url = x.group(1)
+        if url.startswith('//'):
+            url = 'http:' + url
+        else:
+            url = 'http://' + url
+        a = 'src="./static/{}.svg"'.format(md5string(url))
         return a
 
 
