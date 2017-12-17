@@ -4,10 +4,11 @@
 # Author: Vincent<vincent8280@outlook.com>
 #         http://wax8280.github.io
 # Created on 17-12-13 下午9:56
+import random
 import sqlite3
-import time
 import os
 from functools import wraps
+from threading import current_thread
 
 TABLE_ARTICLE_SQL = """
 CREATE TABLE ARTICLE(
@@ -18,7 +19,8 @@ CREATE TABLE ARTICLE(
   VOTE_UP_COUNT           TEXT ,
   AUTHOR                  TEXT ,
   CONTENT_INSERT_TIME     INTEGER ,
-  VERSION                 INTEGER
+  VERSION                 INTEGER,
+  CONSTRAINT uc_PersonID UNIQUE (ARTICLE_ID,TITLE)
 );
 """
 TABLE_META_SQL = """
@@ -51,6 +53,7 @@ def insert_meta_data_static(cursor, conn, meta_data: list, update=True):
 
 def On_DBCreate(cls):
     init = False
+    instances_for_each_thread = {}
 
     @wraps(cls)
     def getinstance(*args, **kw):
@@ -80,6 +83,12 @@ def On_DBCreate(cls):
                 insert_meta_data_static(cursor, conn, [k, v], update=False)
 
             init = True
+
+        thread_name = current_thread().getName()
+        if cls not in instances_for_each_thread:
+            instances_for_each_thread[thread_name] = cls(*args, **kw)
+        else:
+            return instances_for_each_thread[thread_name]
         return cls(*args, **kw)
 
     return getinstance
@@ -140,7 +149,7 @@ class ArticleDB:
 
         for item in items:
             try:
-                # 忽略重复的
+                # 忽略ARTICLE_ID(由url得到的md5)重复的
                 self.cursor.execute(INSERT_ARTICLE_SQL, item)
             except sqlite3.IntegrityError as e:
                 if "UNIQUE constraint failed" in str(e):
@@ -158,3 +167,4 @@ class ArticleDB:
 if __name__ == '__main__':
     with ArticleDB('/home/vincent/TMP') as t:
         t.insert_meta_data(['VERSION', 1], False)
+        t.insert_article(['a', 'a', '', '', '', '', 1])

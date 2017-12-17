@@ -5,6 +5,7 @@
 #         http://wax8280.github.io
 # Created on 17-12-14 下午8:23
 import codecs
+import random
 from multiprocessing import cpu_count
 
 import os
@@ -24,28 +25,28 @@ else:
 
 class HTML2Kindle:
     content_template = Template(read_file('./web2kindle/templates/kindle_content.html'))
-    opf_template = Template(read_file('./web2kindle/templates/kindle.html'))
-    index_template = Template(read_file('./web2kindle/templates/kindle_index.html'))
+    opf_template = Template(read_file('./web2kindle/templates/kindle_opf.html'))
+    index_template = Template(read_file('./web2kindle/templates/kindle_table.html'))
 
     def __init__(self, items, path, book_name, kindlegen_path=KINDLE_GEN_PATH):
         # self.template_env = Environment(loader=PackageLoader('web2kindle'))
         # self.content_template = self.template_env.get_template('kindle_content.html')
-        # self.opf_template = self.template_env.get_template('kindle.html')
-        # self.index_template = self.template_env.get_template('kindle_index.html')
+        # self.opf_template = self.template_env.get_template('kindle_opf.html')
+        # self.index_template = self.template_env.get_template('kindle_table.html')
         # 打包成exe之后会有bug
         self.kindlegen_path = kindlegen_path if kindlegen_path is not None else KINDLE_GEN_PATH
 
         self.items = items
         self.book_name = str(book_name)
         self.path = path
-        self.to_remove = []
+        self.to_remove = set()
         self.log = Log('HTML2Kindle')
 
         if not os.path.exists(os.path.split(path)[0]):
             os.makedirs((os.path.split(path)[0]))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        # pass
         self.remove()
 
     def __enter__(self):
@@ -53,7 +54,10 @@ class HTML2Kindle:
 
     def remove(self):
         for i in self.to_remove:
-            os.remove(i)
+            try:
+                os.remove(i)
+            except FileNotFoundError:
+                pass
 
     def make_metadata(self, window=20):
         spilt_items = split_list(self.items, window)
@@ -65,14 +69,23 @@ class HTML2Kindle:
             opf_name = '{}_{}.opf'.format(self.book_name, str(index))
             table_path = os.path.join(self.path, table_name)
             opf_path = os.path.join(self.path, opf_name)
-            self.to_remove.append(table_path)
-            self.to_remove.append(opf_path)
+
+            # 标记，以便删除
+            self.to_remove.add(table_path)
+            self.to_remove.add(opf_path)
 
             for item in items:
                 kw = {'author_name': item[5], 'voteup_count': item[4], 'created_time': item[3]}
+                # 文件名=title+author
                 article_path = os.path.join(self.path, format_file_name(item[1], item[5]) + '.html')
+                if os.path.exists(article_path):
+                    # 防止文件名重复
+                    article_path = article_path + ''.join(
+                        [chr(random.choice(list(set(range(65, 123)) - set(range(91, 97))))) for i in range(3)])
+
                 self.make_content(item[1], item[2], article_path, kw)
-                self.to_remove.append(article_path)
+                # 标记，以便删除
+                self.to_remove.add(article_path)
                 opf.append({'id': article_path, 'href': article_path})
                 table.append({'href': article_path, 'name': item[1]})
 
