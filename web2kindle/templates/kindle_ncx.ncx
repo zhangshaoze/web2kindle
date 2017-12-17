@@ -1,0 +1,20 @@
+<ncx>
+    <navMap>
+        <navPoint class="toc" id="toc" playOrder="0">
+            <navLabel>
+                <text>目录</text>
+            </navLabel>
+            <content src="{{ table_href }}"/>
+        </navPoint>
+
+        {% for item in navigation %}
+            <navPoint class="welcome" id="welcome" playOrder="{{ loop.index }}">
+                <!-- 分类标题 -->
+                <navLabel>
+                    <text>{{ item.title }}</text>
+                </navLabel>
+                <content src="{{ item.href }}"/>
+            </navPoint>
+        {% endfor %}
+    </navMap>
+</ncx>

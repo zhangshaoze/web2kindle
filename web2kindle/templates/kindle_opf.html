@@ -1,24 +1,34 @@
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="BookId">
-<metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
-<dc:title>{{ title }}</dc:title>
-<dc:language>en-us</dc:language>
-</metadata>
-<manifest>
-      <!-- table of contents [mandatory] -->
-<item id="table" media-type="application/xhtml+xml" href="{{table_href}}"/>
-{% for item in navigation %}
-    <item id="{{ item.href }}" media-type="application/xhtml+xml" href="{{ item.href }}"/>
-{% endfor %}
- {% for item in media %}
-   <item id="{{ item.href }}" media-type="image/{{ item.format}}" href="{{ item.href}}"/>
-{% endfor %}
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+        <dc:title>{{ title }}</dc:title>
+        <dc:creator>Web2Kindle</dc:creator>
+        <dc:language>zh-cn</dc:language>
+        <dc:publisher>Web2Kindle</dc:publisher>
+        <dc:subject>杂志</dc:subject>
+    </metadata>
+    <x-metadata>
+        {#        <output content-type="application/x-mobipocket-subscription-magazine" encoding="utf-8"/>#}
+        {#        <EmbeddedCover>image/cover.jpg</EmbeddedCover><!-- 封面图片 -->#}
+    </x-metadata>
+    <manifest>
+        <item id="ncx" media-type="application/x-dtbncx+xml" href="{{ ncx_href }}"/> <!-- 目录 -->
+        <item id="table" media-type="application/xhtml+xml" href="{{ table_href }}"/>
+        {% for item in navigation %}
+            <item id="{{ item.href }}" media-type="application/xhtml+xml" href="{{ item.href }}"/>
+        {% endfor %}
+        {% for item in media %}
+            <item id="{{ item.href }}" media-type="image/{{ item.format }}" href="{{ item.href }}"/>
+        {% endfor %}
 
-</manifest>
-<spine toc="{{ title }}">
-  <!-- the spine defines the linear reading order of the book -->
-    <itemref idref="table"/>
-  {% for item in navigation %}
-    <itemref idref="{{ item.href }}"/>
-  {% endfor %}
-</spine>
+    </manifest>
+    <spine toc="ncx">
+        <!-- the spine defines the linear reading order of the book -->
+        <itemref idref="table"/>
+        {% for item in navigation %}
+            <itemref idref="{{ item.href }}"/>
+        {% endfor %}
+    </spine>
+    <guide>
+        <reference href="{{ table_href }}" type="toc" title="Table of Contents"/>
+    </guide>
 </package>

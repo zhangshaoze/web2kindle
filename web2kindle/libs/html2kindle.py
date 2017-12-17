@@ -27,6 +27,7 @@ class HTML2Kindle:
     content_template = Template(read_file('./web2kindle/templates/kindle_content.html'))
     opf_template = Template(read_file('./web2kindle/templates/kindle_opf.html'))
     index_template = Template(read_file('./web2kindle/templates/kindle_table.html'))
+    ncx_template = Template(read_file('./web2kindle/templates/kindle_ncx.ncx'))
 
     def __init__(self, items, path, book_name, kindlegen_path=KINDLE_GEN_PATH):
         # self.template_env = Environment(loader=PackageLoader('web2kindle'))
@@ -46,7 +47,7 @@ class HTML2Kindle:
             os.makedirs((os.path.split(path)[0]))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # pass
+        pass
         self.remove()
 
     def __enter__(self):
@@ -61,14 +62,18 @@ class HTML2Kindle:
 
     def make_metadata(self, window=20):
         spilt_items = split_list(self.items, window)
+
+        # 根据window分割电子书
         for index, items in enumerate(spilt_items):
             self.log.log_it("制作 {}_{} 的元数据".format(self.book_name, str(index)), 'INFO')
             opf = []
             table = []
             table_name = '{}_{}.html'.format(self.book_name, str(index))
             opf_name = '{}_{}.opf'.format(self.book_name, str(index))
+            ncx_name = '{}_{}.ncx'.format(self.book_name, str(index))
             table_path = os.path.join(self.path, table_name)
             opf_path = os.path.join(self.path, opf_name)
+            ncx_path = os.path.join(self.path, ncx_name)
 
             # 标记，以便删除
             self.to_remove.add(table_path)
@@ -86,14 +91,21 @@ class HTML2Kindle:
                 self.make_content(item[1], item[2], article_path, kw)
                 # 标记，以便删除
                 self.to_remove.add(article_path)
-                opf.append({'id': article_path, 'href': article_path})
+                opf.append({'id': article_path, 'href': article_path, 'title': item[1]})
                 table.append({'href': article_path, 'name': item[1]})
 
             self.make_table(table, table_path)
-            self.make_opf(self.book_name, opf, table_path, opf_path)
+            self.make_opf(self.book_name + '_' + str(index), opf, table_path, opf_path, ncx_path)
+            self.make_ncx(self.book_name + '_' + str(index), opf, table_path, ncx_path)
 
-    def make_opf(self, title, navigation, table_path, opf_path):
-        rendered_content = self.opf_template.render(title=title, navigation=navigation, table_href=table_path)
+    def make_opf(self, title, navigation, table_path, opf_path, ncx_path):
+        rendered_content = self.opf_template.render(title=title, navigation=navigation, table_href=table_path,
+                                                    ncx_href=ncx_path)
+        with codecs.open(opf_path, 'w', 'utf_8_sig') as f:
+            f.write(rendered_content)
+
+    def make_ncx(self, title, navigation, table_path, opf_path):
+        rendered_content = self.ncx_template.render(title=title, navigation=navigation, table_href=table_path)
         with codecs.open(opf_path, 'w', 'utf_8_sig') as f:
             f.write(rendered_content)
 

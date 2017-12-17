@@ -1,6 +1,10 @@
 <body>
 <h2>Table of Contents</h2>
+<nav epub:type="toc">
+    <ul>
 {% for item in navigation %}
-    <p class="toctext"><a href="{{ item.href }}">{{ item.name }}</a></p>
+    <li class="toctext"><a href="{{ item.href }}">{{ item.name }}</a></li>
 {% endfor %}
+    </ul>
+</nav>
 </body>
