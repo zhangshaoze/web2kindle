@@ -130,7 +130,10 @@ class Task(dict):
         params.setdefault('tid', tid)
 
         if not params['url'].startswith('http'):
-            params['url'] = 'http://' + params['url']
+            if params['url'].startswith('//'):
+                params['url'] = 'http:' + params['url']
+            else:
+                params['url'] = 'http://' + params['url']
         return Task(**params)
 
 
@@ -252,6 +255,15 @@ class Parser(Thread):
 
         try:
             task_with_parsed_data, tasks = task['parser'](task)
+            if tasks and isinstance(tasks, list):
+                self.log.log_it("获取新任务{}个。".format(len(tasks)), 'INFO')
+                for new_task in tasks:
+                    self.task_manager.register(new_task['tid'])
+                    self.to_download_q.put(new_task)
+            elif tasks:
+                self.log.log_it("获取新任务1个。", 'INFO')
+                self.task_manager.register(tasks['tid'])
+                self.to_download_q.put(tasks)
         except RetryDownload:
             self.log.log_it("RetryDownload Exception.Task{}".format(task), 'INFO')
             if task.get('retry', None):
@@ -280,17 +292,8 @@ class Parser(Thread):
             traceback.print_exc()
             self.log.log_it("解析错误。错误信息：{}。Task：{}".format(str(e), task), 'WARN')
             return
-
-        if tasks and isinstance(tasks, list):
-            self.log.log_it("获取新任务{}个。".format(len(tasks)), 'INFO')
-            for new_task in tasks:
-                self.task_manager.register(new_task['tid'])
-                self.to_download_q.put(new_task)
-        elif tasks:
-            self.log.log_it("获取新任务1个。", 'INFO')
-            self.task_manager.register(tasks['tid'])
-            self.to_download_q.put(tasks)
-        self.task_manager.unregister(task['tid'])
+        finally:
+            self.task_manager.unregister(task['tid'])
         return task_with_parsed_data
 
     def run(self):
