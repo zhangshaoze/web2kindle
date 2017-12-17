@@ -84,7 +84,7 @@ def main(start, end, kw):
     new_header = deepcopy(SCRIPT_CONFIG.get('DEFAULT_HEADERS'))
     new_header.update({'Referer': 'https://www.qdaily.com/'})
     save_path = os.path.join(SCRIPT_CONFIG['SAVE_PATH'], 'qdaily_{}'.format(kw['type']))
-    book_name = 'qdaily_{}_{}_{}'.format(kw['type'], start, end)
+    book_name = '好奇心日报_{}_{}_{}'.format(kw['type'], start, end)
     task = Task.make_task({
         'url': API_URL.format(start_t),
         'method': 'GET',
@@ -119,8 +119,7 @@ def main(start, end, kw):
 
     if kw.get('email'):
         with SendEmail2Kindle() as s:
-            s.send_all_mobi(
-                os.path.join(SCRIPT_CONFIG['SAVE_PATH'], book_name))
+            s.send_all_mobi(save_path)
     os._exit(0)
 
 
@@ -273,4 +272,4 @@ def convert_link(x):
 
 
 if __name__ == '__main__':
-    main('2017-12-10', '2017-12-10', {'img': False, 'gif': False, 'type': 'home', 'email': False})
+    main('2017-12-17', '2017-12-17', {'img': False, 'gif': False, 'type': 'home', 'email': False})
