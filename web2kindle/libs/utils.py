@@ -24,6 +24,8 @@ def singleton(cls):
     def getinstance(*args, **kw):
         if cls not in instances:
             instances[cls] = cls(*args, **kw)
+        else:
+            return instances[cls]
         return cls(*args, **kw)
 
     return getinstance
@@ -71,13 +73,20 @@ def codes_write(folder_path, file_path, content, mode='wb'):
 
 def format_file_name(file_name, a=''):
     file_name = re.sub(r'[ \\/:*?"<>→|+]', '', file_name)
-    # 文件名太长无法保存mobi
-    if len(file_name) + len(a) + 2 > 55:
-        _ = 55 - len(a) - 2 - 3
-        file_name = file_name[:_] + '...' '（{}）'.format(a)
-    else:
-        file_name = file_name + '（{}）'.format(a)
 
+    if a:
+        # 文件名太长无法保存mobi
+        if len(file_name) + len(a) + 2 > 55:
+            _ = 55 - len(a) - 2 - 3
+            file_name = file_name[:_] + '...（{}）'.format(a)
+        else:
+            file_name = file_name + '（{}）'.format(a)
+    else:
+        if len(file_name) > 55:
+            _ = 55 - 3
+            file_name = file_name[:_] + '...'
+        else:
+            file_name = file_name
     return file_name
 
 
